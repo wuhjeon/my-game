@@ -57,6 +57,14 @@ body {
 }
 .stat.combo b { color: var(--accent); }
 
+#pick-hint {
+  position: absolute; left: 16px; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+  margin: 0 auto; max-width: 420px; box-sizing: border-box;
+  background: var(--panel); color: var(--panel-ink); border-radius: 14px; padding: 14px 18px;
+  text-align: center; pointer-events: none;
+}
+#pick-hint b { display: block; font-family: var(--font-display); font-weight: 400; font-size: 24px; color: var(--accent); }
+#pick-hint span { display: block; font-size: 13px; line-height: 1.5; color: var(--muted); margin-top: 4px; }
 #toast { position: absolute; left: 50%; top: 32%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; opacity: 0; }
 #toast.show { animation: pop 1.1s ease-out; }
 #toast .gain { font-family: var(--font-display); font-size: 44px; color: #ffffff; text-shadow: 0 2px 0 var(--ink), 0 0 18px rgba(0, 0, 0, 0.35); white-space: nowrap; }
@@ -167,6 +175,8 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     <div class="stat"><span>남은 칸</span><b id="hud-left">0</b></div>
   </header>
 
+  <div id="pick-hint" hidden><b>시작할 칸을 고르세요</b><span>칸을 누르거나 방향키로 고른 뒤 Enter. 고른 칸과 주변 8칸에는 지뢰가 없습니다.</span></div>
+
   <div id="toast"><div class="gain" id="toast-main"></div><div class="sub" id="toast-sub"></div></div>
 
   <div id="controls" hidden>
@@ -181,7 +191,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
   <section class="overlay" id="start-screen">
     <div class="card">
       <h1><small>3D 1인칭</small>지뢰찾기</h1>
-      <p class="lead">8방향으로 점프하며 지뢰가 없는 칸을 모두 밟으세요. 지뢰를 밟으면 사망합니다. 새 칸을 밟을 때마다 콤보가 두 배가 되고, 점수도 두 배로 오릅니다.</p>
+      <p class="lead">8방향으로 점프하며 지뢰가 없는 칸을 모두 열거나, 모든 지뢰에 깃발을 정확히 꽂으면 클리어입니다. 지뢰를 밟으면 사망합니다. 새 칸을 밟을 때마다 콤보가 두 배가 되고, 점수도 두 배로 오릅니다.</p>
       <div>
         <p class="label">난이도</p>
         <div class="levels" id="levels">
@@ -195,6 +205,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
         <li><span>폰</span><span>아래 방향 버튼을 누르거나 옆 칸을 터치해서 점프, 화면을 끌어서 둘러보기</span></li>
         <li><span>깃발</span><span>지뢰가 있을 것 같은 칸을 우클릭하거나 길게 누르기. <kbd>Shift</kbd>+방향 키, 또는 🚩 버튼을 켜고 칸을 골라도 됩니다. 깃발 칸에는 점프할 수 없습니다.</span></li>
         <li><span>열기</span><span>숫자 칸을 좌클릭과 우클릭으로 동시에 누르거나 길게 누르면, 주변 깃발 수가 숫자와 같을 때 나머지 주변 칸이 열립니다. 서 있는 칸은 <kbd>Space</kbd>나 방향 버튼 가운데를 누르세요.</span></li>
+        <li><span>시작</span><span>게임을 시작하면 보드 전체가 위에서 보입니다. 원하는 칸을 고르면 그 칸에서 시작합니다.</span></li>
         <li><span>숫자</span><span>주변 8칸에 있는 지뢰 수입니다. 서 있는 칸의 숫자는 방향 버튼 가운데에 나옵니다.</span></li>
       </ul>
       <button class="primary" id="start-btn" type="button">게임 시작</button>
@@ -338,6 +349,14 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     return m;
   });
 
+  const pickMark = new THREE.Mesh(
+    new THREE.PlaneGeometry(S - 0.2, S - 0.2),
+    new THREE.MeshBasicMaterial({ color: 0xffc94d, transparent: true, opacity: 0.5, depthWrite: false })
+  );
+  pickMark.rotation.x = -Math.PI / 2;
+  pickMark.visible = false;
+  scene.add(pickMark);
+
   // 깃발: 도형(막대 + 삼각형 천)으로 만든 3D 깃발
   const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.1, 6);
   poleGeo.translate(0, 0.55, 0);
@@ -356,8 +375,9 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
 
   // ---------- 게임 상태 ----------
   let levelKey = 'normal';
-  let state = 'idle';      // idle | play | dead | clear
-  let camMode = 'idle';    // idle | fps | overview
+  let state = 'idle';      // idle | choose | play | dead | clear
+  let camMode = 'idle';    // idle | fps | tween
+  let pickCell = null;     // 시작 칸 고르기 중인 칸
   let cur = { r: 4, c: 4 };
   let score = 0n, combo = 1n, steps = 0, opened = 0, flags = 0;
   let flagMode = false;
@@ -394,14 +414,30 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     levelKey = key;
     gameId++;
     resetBoard();
-    state = 'play';
-    camMode = 'fps';
+    state = 'choose';
     score = 0n; combo = 1n; steps = 0; opened = 0; flags = 0;
     setFlagMode(false);
     jump = null; busy = false; hover = null; ov = null; shakeUntil = 0;
     yaw = targetYaw = 0; pitch = -0.68;
-    camera.rotation.set(0, 0, 0);
     cur = { r: Math.floor(N / 2), c: Math.floor(N / 2) };
+    pickCell = at(cur.r, cur.c);
+    toOverview();
+
+    startScreen.hidden = true;
+    overScreen.hidden = true;
+    hud.hidden = false;
+    controls.hidden = true;
+    $('pick-hint').hidden = false;
+    $('flash').classList.remove('on');
+    updateHud();
+    updatePad();
+  }
+
+  // 플레이어가 고른 칸에서 시작
+  function chooseStart(cell) {
+    if (state !== 'choose' || !cell) return;
+    cur = { r: cell.r, c: cell.c };
+    pickCell = null;
 
     // 시작 칸과 그 주변 8칸에는 지뢰를 두지 않음
     const pool = cells.filter((cell) => Math.abs(cell.r - cur.r) > 1 || Math.abs(cell.c - cur.c) > 1);
@@ -409,18 +445,23 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
       const j = Math.floor(Math.random() * (i + 1));
       [pool[i], pool[j]] = [pool[j], pool[i]];
     }
-    pool.slice(0, LEVELS[key].mines).forEach((cell) => { cell.mine = true; });
+    pool.slice(0, LEVELS[levelKey].mines).forEach((cell) => { cell.mine = true; });
     for (const cell of cells) {
       cell.adj = NEIGH.reduce((n, [dr, dc]) => n + (inB(cell.r + dr, cell.c + dc) && at(cell.r + dr, cell.c + dc).mine ? 1 : 0), 0);
     }
     openFrom(cur.r, cur.c);
-    at(cur.r, cur.c).visAt = 0;
+    state = 'play';
 
-    startScreen.hidden = true;
-    overScreen.hidden = true;
-    hud.hidden = false;
+    // 보드 가운데를 바라보는 방향으로 내려가며 1인칭 시작
+    const x = cellX(cur.c), z = cellZ(cur.r);
+    yaw = targetYaw = Math.hypot(x, z) < 0.1 ? 0 : snap(Math.atan2(x, z));
+    pitch = -0.68;
+    const q = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
+    busy = true; // 내려가는 동안에는 조작 잠금
+    flyTo(new THREE.Vector3(x, OPEN_H + EYE, z), q, 900, () => { camMode = 'fps'; busy = false; });
+
+    $('pick-hint').hidden = true;
     controls.hidden = false;
-    $('flash').classList.remove('on');
     updateHud();
     updatePad();
   }
@@ -536,7 +577,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
 
   // ---------- 깃발 ----------
   function toggleFlag(cell) {
-    if (state !== 'play' || !cell || cell.open) return;
+    if (state !== 'play' || busy || !cell || cell.open) return;
     cell.flag = !cell.flag;
     if (cell.flag) {
       cell.flagObj = makeFlag();
@@ -547,6 +588,15 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
       flags--;
     }
     updateHud();
+    checkWin();
+  }
+
+  // 클리어: 안전한 칸을 모두 열었거나, 모든 지뢰에 깃발을 정확히 꽂았을 때(틀린 깃발 없이)
+  const allMinesFlagged = () => flags === LEVELS[levelKey].mines && cells.every((c) => !c.mine || c.flag);
+  function checkWin() {
+    if (state !== 'play') return;
+    if (opened >= safeTotal()) win(false);
+    else if (allMinesFlagged()) win(true);
   }
 
   const neighborsOf = (cell) => NEIGH
@@ -574,7 +624,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     toast('+' + fmt(gain), '주변 ' + targets.length + '칸 열기 · 다음 콤보 x' + fmt(combo));
     updateHud();
     updatePad();
-    if (opened >= safeTotal()) win();
+    checkWin();
   }
 
   function turn(dir) {
@@ -596,6 +646,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
   function land(r, c) {
     cur = { r, c };
     busy = false;
+    if (state !== 'play') return;
     const cell = at(r, c);
     if (cell.mine) { die(cell); return; }
     if (!cell.open) {
@@ -608,7 +659,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     }
     updateHud();
     updatePad();
-    if (opened >= safeTotal()) win();
+    checkWin();
   }
 
   // 사망 시: 깃발 없는 지뢰는 💣, 잘못 꽂은 깃발은 ❌
@@ -651,29 +702,37 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     setTimeout(() => { if (gid === gameId) showOver(false); }, 1800);
   }
 
-  function win() {
+  function win(byFlags) {
     state = 'clear';
     const gid = gameId;
     flagAllMines();
+    // 남은 안전한 칸도 열어서 보여 줌 (점수는 없음)
+    const now = performance.now();
+    cells.forEach((c) => { if (!c.mine && !c.open) { c.open = true; opened++; c.visAt = now; } });
+    updateHud();
     updatePad();
     setTimeout(() => { if (gid === gameId) toOverview(); }, 500);
-    setTimeout(() => { if (gid === gameId) showOver(true); }, 1500);
+    setTimeout(() => { if (gid === gameId) showOver(true, byFlags); }, 1500);
+  }
+
+  function flyTo(toP, toQ, dur, then) {
+    ov = { t0: performance.now(), dur, fromP: camera.position.clone(), fromQ: camera.quaternion.clone(), toP, toQ, then };
+    camMode = 'tween';
   }
 
   function toOverview() {
-    const far = camera.aspect < 1 ? 1.3 : 1;
+    const far = camera.aspect < 1 ? 0.98 : 1; // 세로 화면은 시야각이 넓어서 더 가까이
     aimCam.position.set(0, 19 * far, 14 * far);
     aimCam.lookAt(0, 0, 1);
-    ov = { t0: performance.now(), dur: 1200, fromP: camera.position.clone(), fromQ: camera.quaternion.clone(), toP: aimCam.position.clone(), toQ: aimCam.quaternion.clone() };
-    camMode = 'overview';
+    flyTo(aimCam.position.clone(), aimCam.quaternion.clone(), 1200);
   }
 
-  function showOver(cleared) {
+  function showOver(cleared, byFlags) {
     const title = $('over-title');
     title.textContent = cleared ? '클리어!' : '펑! 사망';
     title.className = cleared ? 'clear' : 'dead';
     $('over-msg').textContent = cleared
-      ? '지뢰를 하나도 밟지 않고 안전한 칸을 모두 찾았습니다.'
+      ? (byFlags ? '모든 지뢰에 깃발을 정확히 꽂았습니다.' : '지뢰를 하나도 밟지 않고 안전한 칸을 모두 찾았습니다.')
       : '지뢰를 밟았습니다. 숫자를 보고 다음 칸을 신중하게 골라 보세요.';
     $('final-score').textContent = fmt(score);
     $('final-steps').textContent = steps + '칸';
@@ -697,12 +756,12 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
 
   let drag = null;
   cvs.addEventListener('pointerdown', (e) => {
-    if (state !== 'play' || drag) return;
+    if ((state !== 'play' && state !== 'choose') || drag) return;
     const isMouse = e.pointerType === 'mouse';
     drag = { id: e.pointerId, x: e.clientX, y: e.clientY, yaw, pitch, moved: false, mouse: isMouse, mask: e.buttons || 1, long: false, timer: 0 };
     cvs.setPointerCapture(e.pointerId);
     // 터치: 길게 누르면 닫힌 칸은 깃발, 숫자 칸은 주변 열기
-    if (!isMouse) {
+    if (!isMouse && state === 'play') {
       drag.timer = setTimeout(() => {
         if (!drag || drag.moved) return;
         drag.long = true;
@@ -716,7 +775,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     if (drag && e.pointerId === drag.id) {
       drag.mask |= e.buttons;
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-      if (!drag.moved && !drag.long && drag.mask === 1 && Math.hypot(dx, dy) > 8) {
+      if (!drag.moved && !drag.long && drag.mask === 1 && state === 'play' && Math.hypot(dx, dy) > 8) {
         clearTimeout(drag.timer); drag.moved = true; cvs.classList.add('dragging'); hover = null; }
       if (drag.moved) {
         yaw = drag.yaw + dx * 0.006;
@@ -724,6 +783,11 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
         targetYaw = snap(yaw);
         updatePad();
       }
+      return;
+    }
+    if (e.pointerType === 'mouse' && state === 'choose') {
+      const cell = pick(e.clientX, e.clientY);
+      if (cell) pickCell = cell;
       return;
     }
     if (e.pointerType === 'mouse' && state === 'play' && !busy) {
@@ -737,8 +801,10 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     drag = null;
     clearTimeout(d.timer);
     cvs.classList.remove('dragging');
-    if (d.moved || d.long || e.type !== 'pointerup' || state !== 'play') return;
+    if (d.moved || d.long || e.type !== 'pointerup') return;
     const cell = pick(e.clientX, e.clientY);
+    if (state === 'choose') { if (camMode !== 'tween' || !ov.then) chooseStart(cell); return; }
+    if (state !== 'play') return;
     if (d.mouse && ((d.mask & 3) === 3 || (d.mask & 4))) chord(cell);   // 좌+우 동시(또는 가운데 버튼)
     else if (d.mouse && (d.mask & 2)) toggleFlag(cell);                  // 우클릭
     else primaryAction(cell);                                            // 좌클릭 / 탭
@@ -782,6 +848,18 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
       if ((e.key === 'Enter' || e.key === ' ') && !onButton) { e.preventDefault(); newGame(levelKey); }
       return;
     }
+    if (state === 'choose') {
+      const mv = { ArrowUp: [-1, 0], KeyW: [-1, 0], ArrowDown: [1, 0], KeyS: [1, 0], ArrowLeft: [0, -1], KeyA: [0, -1], ArrowRight: [0, 1], KeyD: [0, 1] }[e.code];
+      if (mv) {
+        e.preventDefault();
+        const p = pickCell || at(cur.r, cur.c);
+        pickCell = at(clamp(p.r + mv[0], 0, N - 1), clamp(p.c + mv[1], 0, N - 1));
+      } else if ((e.code === 'Enter' || e.code === 'Space') && !e.repeat) {
+        e.preventDefault();
+        chooseStart(pickCell);
+      }
+      return;
+    }
     if (state !== 'play' || e.repeat) return;
     if (e.code === 'ArrowLeft') { e.preventDefault(); turn(1); return; }
     if (e.code === 'ArrowRight') { e.preventDefault(); turn(-1); return; }
@@ -806,6 +884,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     overScreen.hidden = true;
     hud.hidden = true;
     controls.hidden = true;
+    $('pick-hint').hidden = true;
     startScreen.hidden = false;
     $('start-btn').focus({ preventScroll: true });
   });
@@ -871,11 +950,12 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
       }
       camera.position.set(x, y, z);
       camera.rotation.set(pitch, yaw, roll);
-    } else if (camMode === 'overview' && ov) {
+    } else if (camMode === 'tween' && ov) {
       const p = Math.min(1, (t - ov.t0) / ov.dur);
       const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
       camera.position.lerpVectors(ov.fromP, ov.toP, e);
       camera.quaternion.copy(ov.fromQ).slerp(ov.toQ, e);
+      if (p >= 1 && ov.then) { const then = ov.then; ov.then = null; then(); }
     } else if (camMode === 'idle') {
       idleAngle += dt * 0.15;
       camera.position.set(Math.sin(idleAngle) * 19, 11, Math.cos(idleAngle) * 19);
@@ -888,6 +968,13 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
       if (!g) continue;
       g.position.set(cell.mesh.position.x - 0.15, cell.mesh.scale.y, cell.mesh.position.z);
       g.rotation.y = Math.atan2(camera.position.x - g.position.x, camera.position.z - g.position.z);
+    }
+
+    // 시작 칸 고르기 표시
+    pickMark.visible = state === 'choose' && !!pickCell;
+    if (pickMark.visible) {
+      pickMark.position.set(pickCell.mesh.position.x, pickCell.mesh.scale.y + 0.03, pickCell.mesh.position.z);
+      pickMark.material.opacity = 0.45 + Math.sin(t / 180) * 0.2;
     }
 
     // 점프 가능한 옆 칸 표시
