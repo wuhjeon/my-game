@@ -191,7 +191,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
   <section class="overlay" id="start-screen">
     <div class="card">
       <h1><small>3D 1인칭</small>지뢰찾기</h1>
-      <p class="lead">8방향으로 점프하며 지뢰가 없는 칸을 모두 열거나, 모든 지뢰에 깃발을 정확히 꽂으면 클리어입니다. 지뢰를 밟으면 사망합니다. 새 칸을 밟을 때마다 콤보가 두 배가 되고, 점수도 두 배로 오릅니다.</p>
+      <p class="lead">8방향으로 점프하며 지뢰가 없는 칸을 모두 열거나, 모든 지뢰에 깃발을 정확히 꽂으면 클리어입니다. 지뢰를 밟거나, 깃발 수가 지뢰 수와 같아졌는데 틀린 깃발이 있으면 사망합니다. 새 칸을 밟을 때마다 콤보가 두 배가 되고, 점수도 두 배로 오릅니다.</p>
       <div>
         <p class="label">난이도</p>
         <div class="levels" id="levels">
@@ -597,6 +597,10 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     if (state !== 'play') return;
     if (opened >= safeTotal()) win(false);
     else if (allMinesFlagged()) win(true);
+    else if (flags === LEVELS[levelKey].mines) {
+      // 깃발 수가 지뢰 수와 같은데 틀린 깃발이 있으면 사망: 깃발이 없는 지뢰가 터진다
+      die(cells.find((c) => c.mine && !c.flag), 'flags');
+    }
   }
 
   const neighborsOf = (cell) => NEIGH
@@ -683,7 +687,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     updateHud();
   }
 
-  function die(cell) {
+  function die(cell, reason) {
     state = 'dead';
     const gid = gameId;
     cell.mesh.material.color.setHex(0xe5483b);
@@ -699,7 +703,7 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     setTimeout(() => flash.classList.remove('on'), 80);
     updatePad();
     setTimeout(() => { if (gid === gameId) toOverview(); }, 900);
-    setTimeout(() => { if (gid === gameId) showOver(false); }, 1800);
+    setTimeout(() => { if (gid === gameId) showOver(false, false, reason); }, 1800);
   }
 
   function win(byFlags) {
@@ -727,13 +731,15 @@ kbd { font-family: inherit; font-size: 12px; padding: 0 5px; border-radius: 4px;
     flyTo(aimCam.position.clone(), aimCam.quaternion.clone(), 1200);
   }
 
-  function showOver(cleared, byFlags) {
+  function showOver(cleared, byFlags, reason) {
     const title = $('over-title');
     title.textContent = cleared ? '클리어!' : '펑! 사망';
     title.className = cleared ? 'clear' : 'dead';
     $('over-msg').textContent = cleared
       ? (byFlags ? '모든 지뢰에 깃발을 정확히 꽂았습니다.' : '지뢰를 하나도 밟지 않고 안전한 칸을 모두 찾았습니다.')
-      : '지뢰를 밟았습니다. 숫자를 보고 다음 칸을 신중하게 골라 보세요.';
+      : reason === 'flags'
+        ? '깃발 수가 지뢰 수와 같아졌지만 틀린 깃발이 있었습니다. ❌ 표시가 잘못 꽂은 깃발입니다.'
+        : '지뢰를 밟았습니다. 숫자를 보고 다음 칸을 신중하게 골라 보세요.';
     $('final-score').textContent = fmt(score);
     $('final-steps').textContent = steps + '칸';
     $('final-level').textContent = LEVELS[levelKey].name;
