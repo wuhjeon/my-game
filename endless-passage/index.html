@@ -1,0 +1,1134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>끝없는 통로</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;600;700&display=swap">
+<style>
+:root {
+  /* Layout: 화면 전체가 1인칭 3D 통로, 가운데 조준점, 시작/일시정지/결말은 가운데 카드 */
+  --bg: #050505;
+  --panel: rgba(12, 13, 15, 0.9);
+  --ink: #e9e6df;
+  --muted: #9a968d;
+  --accent: #f2c94c;
+  --danger: #c0281e;
+  --line: rgba(255, 255, 255, 0.12);
+  --font-display: "Black Han Sans", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+[hidden] { display: none !important; }
+#app { position: fixed; inset: 0; }
+#stage { position: absolute; inset: 0; }
+#stage canvas { display: block; touch-action: none; }
+#fade { position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity 0.45s; }
+#fade.on { opacity: 1; }
+#scare { position: absolute; inset: 0; background: radial-gradient(circle, rgba(0,0,0,0) 20%, var(--danger) 120%); opacity: 0; pointer-events: none; }
+#scare.on { opacity: 1; }
+#cross {
+  position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px;
+  border-radius: 50%; background: rgba(255, 255, 255, 0.55); pointer-events: none;
+}
+#toast {
+  position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%);
+  max-width: calc(100% - 32px); text-align: center; pointer-events: none;
+  font-size: 17px; line-height: 1.6; color: var(--ink); text-shadow: 0 1px 6px #000;
+  opacity: 0; transition: opacity 0.6s;
+}
+#toast.on { opacity: 1; }
+#toast small { display: block; color: var(--muted); font-size: 13px; }
+#hint {
+  position: absolute; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  font-size: 12px; color: var(--muted); pointer-events: none;
+}
+#sound {
+  position: absolute; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 12px);
+  font: inherit; font-size: 12px; color: var(--muted); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer;
+}
+
+/* 조이스틱 (터치 기기) */
+.stick {
+  position: absolute; width: 96px; height: 96px; margin: -48px 0 0 -48px; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.25); background: rgba(255, 255, 255, 0.05); pointer-events: none;
+}
+.stick i {
+  position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px;
+  border-radius: 50%; background: rgba(255, 255, 255, 0.3);
+}
+
+.screen {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(0, 0, 0, 0.72);
+}
+.card {
+  width: 100%; max-width: 440px; max-height: 100%; overflow: auto; box-sizing: border-box;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 24px 22px;
+}
+.card h1, .card h2 { font-family: var(--font-display); font-weight: 400; margin: 0 0 6px; letter-spacing: 0.02em; }
+.card h1 { font-size: 34px; color: var(--accent); }
+.card h2 { font-size: 26px; }
+.card p { margin: 6px 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.rules { margin: 14px 0; padding: 12px 14px; border-left: 3px solid var(--accent); background: rgba(255, 255, 255, 0.04); }
+.rules ol { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.75; }
+.keys { font-size: 13px; color: var(--muted); line-height: 1.7; }
+kbd {
+  font-family: var(--font-body); font-size: 12px; padding: 1px 6px; border-radius: 4px;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: var(--ink);
+}
+.btn {
+  display: block; width: 100%; margin-top: 16px; padding: 13px; border: 0; border-radius: 10px;
+  font: inherit; font-weight: 700; font-size: 16px; background: var(--accent); color: #17150f; cursor: pointer;
+}
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 4px; }
+.stats div { background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 8px 10px; }
+.stats span { display: block; font-size: 11px; color: var(--muted); }
+.stats b { font-family: var(--font-display); font-weight: 400; font-size: 22px; }
+#found-list { font-size: 13px; color: var(--muted); line-height: 1.7; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage"></div>
+  <div id="cross"></div>
+  <div id="toast"></div>
+  <div id="hint" hidden></div>
+  <button id="sound" type="button" hidden>소리 켜짐</button>
+  <div id="stick" class="stick" hidden><i></i></div>
+  <div id="scare"></div>
+  <div id="fade" class="on"></div>
+
+  <div id="start-screen" class="screen">
+    <div class="card">
+      <h1>끝없는 통로</h1>
+      <p>지하 1층 연결 통로. 같은 길이 반복된다.</p>
+      <div class="rules">
+        <ol>
+          <li>통로를 잘 살펴본다.</li>
+          <li>이상한 점이 있으면 <b>즉시 되돌아간다.</b></li>
+          <li>이상한 점이 없으면 <b>끝까지 앞으로 간다.</b></li>
+          <li>틀리면 출구 번호가 0으로 돌아간다.</li>
+          <li>출구 번호가 8이 되면 밖으로 나갈 수 있다.</li>
+        </ol>
+      </div>
+      <div class="keys" id="keys-desktop">
+        <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 이동 · <kbd>Shift</kbd> 달리기 · 마우스 시점 · <kbd>M</kbd> 소리 · <kbd>Esc</kbd> 일시정지
+      </div>
+      <div class="keys" id="keys-touch" hidden>
+        화면 왼쪽을 끌어 이동 (끝까지 밀면 달리기) · 오른쪽을 끌어 시점 회전
+      </div>
+      <button class="btn" id="start-btn" type="button" disabled>불러오는 중…</button>
+    </div>
+  </div>
+
+  <div id="pause-screen" class="screen" hidden>
+    <div class="card">
+      <h2>일시정지</h2>
+      <p>화면을 클릭하면 이어서 걷는다.</p>
+      <button class="btn" id="resume-btn" type="button">계속하기</button>
+    </div>
+  </div>
+
+  <div id="end-screen" class="screen" hidden>
+    <div class="card">
+      <h1>밖으로 나왔다</h1>
+      <p>계단 위로 차가운 바깥 공기가 느껴진다.</p>
+      <div class="stats">
+        <div><span>걸린 시간</span><b id="st-time">0:00</b></div>
+        <div><span>지나온 통로</span><b id="st-loops">0</b></div>
+        <div><span>틀린 횟수</span><b id="st-miss">0</b></div>
+        <div><span>발견한 이상현상</span><b id="st-found">0</b></div>
+      </div>
+      <p id="found-list"></p>
+      <button class="btn" id="again-btn" type="button">처음부터 다시</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(() => {
+  const W = 4;          // 통로 폭
+  const H = 3;          // 천장 높이
+  const L = 36;         // 통로 길이 (z = 0 에서 z = -L 까지)
+  const P = 7;          // 양 끝 꺾인 통로 길이
+  const EYE = 1.6;      // 눈 높이
+  const GOAL = 8;       // 탈출에 필요한 출구 번호
+  const ANOMALY_CHANCE = 0.6;
+  const WALK = 2.6, RUN = 4.6;
+  const R = 0.3;        // 플레이어 충돌 반경
+  const FONT = '"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif';
+  const DISPLAY = '"Black Han Sans", ' + FONT;
+
+  const $ = (id) => document.getElementById(id);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const touchMode = matchMedia('(pointer: coarse)').matches;
+
+  // ---------- 렌더러 / 장면 ----------
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  $('stage').appendChild(renderer.domElement);
+  const cvs = renderer.domElement;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x050505);
+  scene.fog = new THREE.FogExp2(0x050505, 0.03);
+  const camera = new THREE.PerspectiveCamera(72, 1, 0.05, 120);
+  camera.rotation.order = 'YXZ';
+  scene.add(new THREE.AmbientLight(0xd8dce0, 0.28));
+
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  // ---------- 캔버스 텍스처 ----------
+  const maxAniso = renderer.capabilities.getMaxAnisotropy();
+  const canvases = []; // 글꼴 로딩 뒤 다시 그리기 위해 보관
+  function canvasTex(w, h, draw, repeat) {
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    draw(c.getContext('2d'), w, h);
+    const t = new THREE.CanvasTexture(c);
+    canvases.push({ c, draw, t });
+    t.encoding = THREE.sRGBEncoding;
+    t.anisotropy = maxAniso;
+    if (repeat) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(repeat[0], repeat[1]); }
+    return t;
+  }
+  function text(g, str, x, y, size, color, font, align) {
+    g.font = size + 'px ' + (font || FONT);
+    g.fillStyle = color;
+    g.textAlign = align || 'center';
+    g.textBaseline = 'middle';
+    g.fillText(str, x, y);
+  }
+  function noise(g, w, h, n, alpha) {
+    for (let i = 0; i < n; i++) {
+      g.fillStyle = `rgba(0,0,0,${Math.random() * alpha})`;
+      g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+    }
+  }
+
+  // 벽: 아래쪽 1/3은 타일, 위쪽은 미색 패널
+  const drawWall = (g, w, h) => {
+    g.fillStyle = '#d9d4c7'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(0,0,0,0.08)'; g.lineWidth = 2;
+    for (let x = 0; x <= w; x += w / 2) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h * 0.64); g.stroke(); }
+    const ty = h * 0.66;
+    g.fillStyle = '#8f9aa0'; g.fillRect(0, ty, w, h - ty);
+    g.strokeStyle = 'rgba(255,255,255,0.35)';
+    for (let y = ty; y < h; y += 24) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+    for (let row = 0, y = ty; y < h; y += 24, row++) {
+      for (let x = (row % 2) * 24; x < w; x += 48) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 24); g.stroke(); }
+    }
+    g.fillStyle = '#3c4448'; g.fillRect(0, ty - 8, w, 8);
+    g.fillStyle = '#2b2f31'; g.fillRect(0, h - 14, w, 14);
+    noise(g, w, h, 2500, 0.06);
+  };
+  const drawFloor = (g, w, h) => {
+    g.fillStyle = '#7d7b76'; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 3;
+    for (let i = 0; i <= 2; i++) {
+      g.beginPath(); g.moveTo(i * w / 2, 0); g.lineTo(i * w / 2, h); g.stroke();
+      g.beginPath(); g.moveTo(0, i * h / 2); g.lineTo(w, i * h / 2); g.stroke();
+    }
+    noise(g, w, h, 4000, 0.12);
+  };
+
+  // ---------- 재질 ----------
+  const wallMat = (len) => new THREE.MeshStandardMaterial({ map: canvasTex(512, 512, drawWall, [len / 3, 1]), roughness: 0.85 });
+  const floorMat = new THREE.MeshStandardMaterial({ map: canvasTex(256, 256, drawFloor, [12, (L + 2 * W + 4) / 2]), roughness: 0.7 });
+  const ceilMat = new THREE.MeshStandardMaterial({ color: 0xbdbab2, roughness: 0.95 });
+  const darkMat = new THREE.MeshBasicMaterial({ color: 0x000000 });
+
+  // ---------- 통로 ----------
+  function addWall(cx, cz, len, rotY) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(len, H), wallMat(len));
+    m.position.set(cx, H / 2, cz);
+    m.rotation.y = rotY;
+    scene.add(m);
+  }
+  const PI = Math.PI;
+  addWall(-W / 2, (-L - W) / 2, L + W, PI / 2);          // 왼쪽 벽 (시작 쪽 갈림길 앞에서 끝남)
+  addWall(W / 2, (W - L) / 2, L + W, -PI / 2);           // 오른쪽 벽 (끝 쪽 갈림길 앞에서 끝남)
+  addWall(0, W, W, PI);                                  // 뒤쪽 막힌 벽
+  addWall(0, -L - W, W, 0);                              // 앞쪽 막힌 벽
+  addWall(-W / 2 - P / 2, W, P, PI);                     // 되돌아가는 통로
+  addWall(-W / 2 - P / 2, 0, P, 0);
+  addWall(-W / 2 - P, W / 2, W, PI / 2);
+  addWall(W / 2 + P / 2, -L, P, PI);                     // 앞으로 가는 통로
+  addWall(W / 2 + P / 2, -L - W, P, 0);
+  addWall(W / 2 + P, -L - W / 2, W, -PI / 2);
+
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(24, L + 2 * W + 4), floorMat);
+  floor.rotation.x = -PI / 2;
+  floor.position.set(0, 0, -L / 2);
+  scene.add(floor);
+
+  // 점자 블록 띠
+  const stripMat = new THREE.MeshStandardMaterial({
+    roughness: 0.6,
+    map: canvasTex(64, 64, (g, w, h) => {
+      g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
+      g.fillStyle = 'rgba(0,0,0,0.18)';
+      for (let x = 0; x < 4; x++) g.fillRect(6 + x * 15, 0, 6, h);
+    }, [1, (L + 2 * W) / 0.3]),
+  });
+  const strip = new THREE.Mesh(new THREE.PlaneGeometry(0.3, L + 2 * W), stripMat);
+  strip.rotation.x = -PI / 2;
+  strip.position.set(-1.0, 0.005, -L / 2);
+  scene.add(strip);
+
+  // 천장과 거기 달린 것들은 한 그룹 (천장이 내려오는 이상현상용)
+  const ceil = new THREE.Group();
+  scene.add(ceil);
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(24, L + 2 * W + 4), ceilMat);
+  ceiling.rotation.x = PI / 2;
+  ceiling.position.set(0, H, -L / 2);
+  ceil.add(ceiling);
+
+  const tubeGeo = new THREE.BoxGeometry(0.22, 0.05, 1.5);
+  const tubes = [];
+  for (let z = -2; z >= -L; z -= 4) {
+    const m = new THREE.Mesh(tubeGeo, new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    m.position.set(0, H - 0.03, z);
+    ceil.add(m);
+    tubes.push(m);
+  }
+  const lamps = [];
+  for (let z = -3; z >= -L; z -= 8) {
+    const l = new THREE.PointLight(0xfff6e6, 1, 15, 1.6);
+    l.position.set(0, H - 0.3, z);
+    ceil.add(l);
+    lamps.push(l);
+  }
+
+  // 환풍구
+  const vent = new THREE.Mesh(new THREE.PlaneGeometry(1, 0.6), new THREE.MeshStandardMaterial({
+    map: canvasTex(128, 80, (g, w, h) => {
+      g.fillStyle = '#6d6f70'; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#1b1c1d';
+      for (let y = 8; y < h - 6; y += 9) g.fillRect(8, y, w - 16, 4);
+    }),
+  }));
+  vent.rotation.x = PI / 2;
+  vent.position.set(0.9, H - 0.005, -18);
+  ceil.add(vent);
+
+  // 감시 카메라
+  const cctv = new THREE.Group();
+  const cctvHead = new THREE.Group();
+  const cctvMat = new THREE.MeshStandardMaterial({ color: 0xe8e8e4, roughness: 0.5 });
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.25, 0.05), cctvMat);
+  arm.position.y = -0.12;
+  cctv.add(arm);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.38), cctvMat);
+  body.position.z = 0.1;
+  cctvHead.add(body);
+  const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.04, 16), new THREE.MeshBasicMaterial({ color: 0x111111 }));
+  lens.rotation.x = PI / 2;
+  lens.position.z = 0.3;
+  cctvHead.add(lens);
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.015, 8, 8), new THREE.MeshBasicMaterial({ color: 0xff2a1a, fog: false }));
+  led.position.set(0.05, 0.05, 0.3);
+  cctvHead.add(led);
+  cctvHead.position.y = -0.27;
+  cctv.add(cctvHead);
+  cctv.position.set(W / 2 - 0.35, H, -1);
+  ceil.add(cctv);
+  cctvHead.rotation.order = 'YXZ';
+  const CCTV_REST = { x: 0.35, y: PI + 0.25 }; // 통로 안쪽(-z)을 비스듬히 내려다봄
+
+  // 천장에 매단 표지판
+  function hangingSign(z, w, h) {
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.06), [darkMat, darkMat, darkMat, darkMat, mat, darkMat]);
+    m.position.set(0, H - 0.5, z);
+    ceil.add(m);
+    for (const x of [-w / 2 + 0.1, w / 2 - 0.1]) {
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.3, 6), darkMat);
+      rod.position.set(x, H - 0.5 + h / 2 + 0.15, z);
+      ceil.add(rod);
+    }
+    return { mesh: m, mat };
+  }
+  const counterSign = hangingSign(-1.6, 1.4, 0.42);
+  const counterTex = [];
+  for (let n = 0; n <= GOAL; n++) {
+    counterTex.push(canvasTex(512, 154, (g, w, h) => {
+      g.fillStyle = '#121212'; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#f2c94c'; g.fillRect(0, h - 10, w, 10);
+      text(g, '출구', 150, h / 2, 64, '#f2f2f2', DISPLAY);
+      g.fillStyle = '#f2c94c';
+      g.beginPath(); g.arc(352, h / 2, 56, 0, PI * 2); g.fill();
+      text(g, String(n), 352, h / 2 + 4, 82, '#121212', DISPLAY);
+    }));
+  }
+  const exitSign = hangingSign(-L + 0.6, 1.6, 0.42);
+  const exitSignTex = (dir) => canvasTex(512, 134, (g, w, h) => {
+    g.fillStyle = '#0e6b3a'; g.fillRect(0, 0, w, h);
+    text(g, '출구', dir > 0 ? 190 : 322, h / 2, 64, '#ffffff', DISPLAY);
+    const ax = dir > 0 ? 380 : 132;
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.moveTo(ax + dir * 70, h / 2);
+    g.lineTo(ax + dir * 10, h / 2 - 42);
+    g.lineTo(ax + dir * 10, h / 2 - 16);
+    g.lineTo(ax - dir * 60, h / 2 - 16);
+    g.lineTo(ax - dir * 60, h / 2 + 16);
+    g.lineTo(ax + dir * 10, h / 2 + 16);
+    g.lineTo(ax + dir * 10, h / 2 + 42);
+    g.closePath(); g.fill();
+  });
+  const exitTexRight = exitSignTex(1), exitTexLeft = exitSignTex(-1);
+
+  // ---------- 왼쪽 벽: 안내판과 광고 포스터 ----------
+  function wallPlane(tex, w, h, x, y, z, rotY, transparent) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({
+      map: tex, roughness: 0.55, transparent: !!transparent, side: THREE.DoubleSide,
+    }));
+    m.position.set(x, y, z);
+    m.rotation.y = rotY;
+    scene.add(m);
+    return m;
+  }
+  const LEFT = -W / 2 + 0.02, RIGHT = W / 2 - 0.02;
+
+  wallPlane(canvasTex(320, 400, (g, w, h) => {
+    g.fillStyle = '#f4f1e8'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#1d3d6b'; g.fillRect(0, 0, w, 70);
+    text(g, '통로 이용 안내', w / 2, 36, 34, '#ffffff', DISPLAY);
+    const lines = ['이상한 점을 놓치지 마세요.', '이상한 점을 발견하면', '   즉시 되돌아가세요.', '이상한 점이 없다면', '   되돌아가지 마세요.', '출구 8번에서 나가세요.'];
+    lines.forEach((s, i) => text(g, s, 26, 110 + i * 44, 22, '#1d1d1d', FONT, 'left'));
+    noise(g, w, h, 600, 0.08);
+  }), 1.0, 1.25, LEFT, 1.55, -2.6, PI / 2);
+
+  const posterDefs = [
+    { z: -6, bg: '#bfe2f2', draw: (g, w, h) => {
+      g.fillStyle = '#ffffff'; g.beginPath(); g.arc(w / 2, 150, 80, 0, PI * 2); g.fill();
+      g.fillStyle = '#6fb3d6'; g.fillRect(w / 2 - 34, 110, 68, 90);
+      text(g, '미소치과', w / 2, 290, 44, '#1b4e6b', DISPLAY);
+      text(g, '지하 1층 7번 통로 앞', w / 2, 338, 18, '#1b4e6b');
+    } },
+    { z: -12, bg: '#f28a2e', draw: (g, w, h) => {
+      text(g, '3개월', w / 2, 110, 64, '#ffffff', DISPLAY);
+      text(g, '완성', w / 2, 180, 64, '#ffffff', DISPLAY);
+      text(g, '직장인 영어회화', w / 2, 270, 30, '#2a1600', DISPLAY);
+      text(g, '첫 달 수강료 50%', w / 2, 330, 20, '#2a1600');
+    } },
+    { z: -18, bg: '#141b33', draw: (g, w, h) => {
+      g.fillStyle = '#e6c46a'; g.beginPath(); g.arc(w / 2, 150, 90, 0, PI * 2); g.fill();
+      g.fillStyle = '#141b33'; g.beginPath(); g.arc(w / 2 + 40, 130, 80, 0, PI * 2); g.fill();
+      text(g, '빛과 그림자 展', w / 2, 300, 36, '#e6c46a', DISPLAY);
+      text(g, '시립미술관 · 11.1 – 12.31', w / 2, 345, 17, '#9aa3c4');
+    } },
+    { z: -24, bg: '#e9f4fb', draw: (g, w, h) => {
+      g.fillStyle = '#4aa3df';
+      g.beginPath(); g.moveTo(w / 2, 50); g.quadraticCurveTo(w / 2 + 70, 160, w / 2, 220); g.quadraticCurveTo(w / 2 - 70, 160, w / 2, 50); g.fill();
+      text(g, '맑은샘', w / 2, 290, 52, '#1c5f8f', DISPLAY);
+      text(g, '깊은 산 암반수 2L', w / 2, 340, 18, '#1c5f8f');
+    } },
+    { z: -30, bg: '#ffffff', draw: (g, w, h) => {
+      g.fillStyle = '#222'; g.fillRect(0, 0, w, 60);
+      text(g, '분실물 안내', w / 2, 32, 30, '#ffffff', DISPLAY);
+      ['물건을 잃어버리셨나요?', '역무실로 문의하세요.', '', '보관 기간 7일', '운영 05:30 – 24:00'].forEach((s, i) => text(g, s, w / 2, 120 + i * 40, 20, '#222'));
+    } },
+  ];
+  const posterTex = (bg, draw) => canvasTex(256, 384, (g, w, h) => {
+    g.fillStyle = bg; g.fillRect(0, 0, w, h);
+    draw(g, w, h);
+    noise(g, w, h, 500, 0.08);
+  });
+  const posters = posterDefs.map((d) => {
+    const tex = posterTex(d.bg, d.draw);
+    const m = wallPlane(tex, 0.9, 1.35, LEFT, 1.55, d.z, PI / 2);
+    return { mesh: m, tex };
+  });
+  const eyesTex = posterTex('#d9cdb0', (g, w, h) => {
+    for (const ex of [w / 2 - 58, w / 2 + 58]) {
+      g.fillStyle = '#f7f2e6';
+      g.beginPath(); g.ellipse(ex, 180, 52, 30, 0, 0, PI * 2); g.fill();
+      g.strokeStyle = 'rgba(160,20,20,0.6)'; g.lineWidth = 1.5;
+      for (let i = 0; i < 6; i++) {
+        g.beginPath(); g.moveTo(ex + (i % 2 ? 50 : -50), 180 + (i - 3) * 6); g.lineTo(ex + (i % 2 ? 22 : -22), 180); g.stroke();
+      }
+      g.fillStyle = '#2d1a0e'; g.beginPath(); g.arc(ex, 180, 21, 0, PI * 2); g.fill();
+      g.fillStyle = '#000'; g.beginPath(); g.arc(ex, 180, 9, 0, PI * 2); g.fill();
+      g.strokeStyle = '#2a2014'; g.lineWidth = 4;
+      g.beginPath(); g.ellipse(ex, 180, 52, 30, 0, PI, PI * 2); g.stroke();
+    }
+    text(g, '빛과 그림자 展', w / 2, 300, 36, '#3a3226', DISPLAY);
+  });
+  const extraPoster = wallPlane(posterTex('#f1efe9', (g, w, h) => {
+    text(g, '사람을 찾습니다', w / 2, 52, 34, '#9b1b1b', DISPLAY);
+    g.fillStyle = '#1a1a1a';
+    g.beginPath(); g.arc(w / 2, 150, 46, 0, PI * 2); g.fill();
+    g.fillRect(w / 2 - 70, 196, 140, 110);
+    ['지하 통로에서 마지막으로 목격', '검은 정장, 서류 가방', '', '이 통로를 지나간 적 있음'].forEach((s, i) => text(g, s, w / 2, 326 + i * 16, 13, '#333'));
+  }), 0.9, 1.35, LEFT, 1.55, -15, PI / 2);
+
+  // 손자국 (왼쪽 벽, 포스터 뒤에 깔림)
+  const handprints = wallPlane(canvasTex(1024, 512, (g, w, h) => {
+    const hand = (x, y, s, rot) => {
+      g.save(); g.translate(x, y); g.rotate(rot); g.scale(s, s);
+      g.fillStyle = 'rgba(95,8,8,0.82)';
+      g.beginPath(); g.ellipse(0, 0, 26, 32, 0, 0, PI * 2); g.fill();
+      [[-24, -40, -0.5], [-9, -54, -0.15], [7, -56, 0.05], [22, -46, 0.3], [32, -6, 1.0]].forEach(([fx, fy, fr]) => {
+        g.beginPath(); g.ellipse(fx, fy, 7, 18, fr, 0, PI * 2); g.fill();
+      });
+      g.restore();
+    };
+    for (let i = 0; i < 26; i++) hand(40 + Math.random() * (w - 80), 60 + Math.random() * (h - 160), 0.8 + Math.random() * 0.5, (Math.random() - 0.5) * 1.2);
+  }), 6, 2.4, LEFT - 0.01, 1.3, -21, PI / 2, true);
+
+  // ---------- 오른쪽 벽: 문, 시계, 소화기 ----------
+  const doorDefs = [-8, -20, -32];
+  const doors = doorDefs.map((z, i) => {
+    const recess = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 2.1), darkMat);
+    recess.position.set(W / 2 - 0.006, 1.05, z);
+    recess.rotation.y = -PI / 2;
+    scene.add(recess);
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x3a3d40, roughness: 0.6 });
+    for (const [w, h, y, dz] of [[0.08, 2.2, 1.1, 0.54], [0.08, 2.2, 1.1, -0.54], [0.08, 0.08, 2.18, 0]]) {
+      const f = new THREE.Mesh(new THREE.BoxGeometry(0.06, h, dz === 0 ? 1.16 : w), frameMat);
+      f.position.set(W / 2 - 0.03, y, z + dz);
+      scene.add(f);
+    }
+    const tex = canvasTex(200, 420, (g, w, h) => {
+      g.fillStyle = '#8c9296'; g.fillRect(0, 0, w, h);
+      g.strokeStyle = 'rgba(0,0,0,0.25)'; g.lineWidth = 3; g.strokeRect(14, 14, w - 28, h - 28);
+      g.fillStyle = '#f2f2f2'; g.fillRect(50, 60, 100, 40);
+      text(g, 'B1-0' + (i + 1), 100, 81, 24, '#222');
+      text(g, '관계자 외 출입금지', 100, 130, 14, '#222');
+      g.fillStyle = '#c9cdd0'; g.fillRect(150, 210, 30, 12);
+      noise(g, w, h, 800, 0.1);
+    });
+    const pivot = new THREE.Group();
+    pivot.position.set(W / 2 - 0.02, 0, z + 0.5);
+    const panel = new THREE.Mesh(new THREE.PlaneGeometry(1.0, 2.1), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.5, metalness: 0.2, side: THREE.DoubleSide }));
+    panel.position.set(0, 1.05, -0.5);
+    panel.rotation.y = -PI / 2;
+    pivot.add(panel);
+    scene.add(pivot);
+    return pivot;
+  });
+
+  const clock = new THREE.Group();
+  clock.position.set(RIGHT - 0.04, 2.3, -14);
+  clock.rotation.y = -PI / 2;
+  const face = new THREE.Mesh(new THREE.CircleGeometry(0.26, 40), new THREE.MeshStandardMaterial({
+    map: canvasTex(256, 256, (g, w, h) => {
+      g.fillStyle = '#f5f3ee'; g.beginPath(); g.arc(128, 128, 128, 0, PI * 2); g.fill();
+      g.strokeStyle = '#222'; g.lineWidth = 14; g.beginPath(); g.arc(128, 128, 120, 0, PI * 2); g.stroke();
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * PI * 2;
+        g.lineWidth = i % 3 ? 3 : 7;
+        g.beginPath(); g.moveTo(128 + Math.sin(a) * 92, 128 - Math.cos(a) * 92); g.lineTo(128 + Math.sin(a) * 106, 128 - Math.cos(a) * 106); g.stroke();
+      }
+    }),
+  }));
+  clock.add(face);
+  function hand(len, width) {
+    const pv = new THREE.Group();
+    const m = new THREE.Mesh(new THREE.BoxGeometry(width, len, 0.01), new THREE.MeshBasicMaterial({ color: 0x151515 }));
+    m.position.y = len / 2 - 0.02;
+    pv.add(m);
+    pv.position.z = 0.01;
+    clock.add(pv);
+    return pv;
+  }
+  const hourHand = hand(0.13, 0.025), minHand = hand(0.2, 0.016);
+  scene.add(clock);
+  const CLOCK_H = -(10 + 8 / 60) / 12 * PI * 2, CLOCK_M = -(8 / 60) * PI * 2;
+
+  const extinguisher = new THREE.Group();
+  const extBody = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.5, 16), new THREE.MeshStandardMaterial({ color: 0xc8231a, roughness: 0.4 }));
+  extBody.position.y = 0.3;
+  extinguisher.add(extBody);
+  const extTop = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.05, 0.1, 10), new THREE.MeshStandardMaterial({ color: 0x222222 }));
+  extTop.position.y = 0.6;
+  extinguisher.add(extTop);
+  extinguisher.position.set(RIGHT - 0.14, 0, -26);
+  scene.add(extinguisher);
+  wallPlane(canvasTex(200, 80, (g, w, h) => {
+    g.fillStyle = '#c8231a'; g.fillRect(0, 0, w, h);
+    text(g, '소화기', w / 2, h / 2 + 2, 40, '#ffffff', DISPLAY);
+  }), 0.4, 0.16, RIGHT, 1.0, -26, -PI / 2);
+
+  // ---------- 피 웅덩이와 떨어지는 방울 ----------
+  const bloodMat = new THREE.MeshStandardMaterial({ color: 0x4a0606, roughness: 0.15, metalness: 0.1 });
+  const puddle = new THREE.Mesh(new THREE.CircleGeometry(0.7, 32), bloodMat);
+  puddle.rotation.x = -PI / 2;
+  puddle.scale.set(1, 0.7, 1);
+  puddle.position.set(0.9, 0.006, -18);
+  scene.add(puddle);
+  const drips = [];
+  for (let i = 0; i < 4; i++) {
+    const d = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), bloodMat);
+    d.scale.y = 1.8;
+    d.userData.t = i * 0.55;
+    scene.add(d);
+    drips.push(d);
+  }
+
+  // ---------- 걸어오는 사람 ----------
+  function makePerson(suitColor, skinColor) {
+    const g = new THREE.Group();
+    const suit = new THREE.MeshStandardMaterial({ color: suitColor, roughness: 0.8 });
+    const skin = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.7 });
+    const limb = (w, h, d, mat, px, py) => {
+      const pv = new THREE.Group();
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      m.position.y = -h / 2;
+      pv.add(m);
+      pv.position.set(px, py, 0);
+      g.add(pv);
+      return pv;
+    };
+    const legL = limb(0.15, 0.88, 0.17, suit, -0.11, 0.9);
+    const legR = limb(0.15, 0.88, 0.17, suit, 0.11, 0.9);
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.64, 0.25), suit);
+    torso.position.y = 1.22;
+    g.add(torso);
+    const shirt = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.4), new THREE.MeshStandardMaterial({ color: 0xe8e8e8 }));
+    shirt.position.set(0, 1.32, 0.126);
+    g.add(shirt);
+    const armL = limb(0.1, 0.64, 0.12, suit, -0.29, 1.5);
+    const armR = limb(0.1, 0.64, 0.12, suit, 0.29, 1.5);
+    const bag = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.28, 0.38), new THREE.MeshStandardMaterial({ color: 0x2a1c12 }));
+    bag.position.set(0, -0.72, 0);
+    armR.add(bag);
+    const head = new THREE.Group();
+    head.position.y = 1.7;
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.13, 20, 16), skin);
+    head.add(skull);
+    const hair = new THREE.Mesh(new THREE.SphereGeometry(0.135, 20, 16, 0, PI * 2, 0, PI * 0.45), new THREE.MeshStandardMaterial({ color: 0x141414 }));
+    hair.position.y = 0.01;
+    head.add(hair);
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x050505 });
+    for (const x of [-0.045, 0.045]) {
+      const e = new THREE.Mesh(new THREE.SphereGeometry(0.016, 8, 8), eyeMat);
+      e.position.set(x, 0.01, 0.12);
+      head.add(e);
+    }
+    g.add(head);
+    return { group: g, legL, legR, armL, armR, head, eyeMat };
+  }
+  const man = makePerson(0x22252c, 0xd6b398);
+  scene.add(man.group);
+  const MAN_X = W / 2 - 0.85, MAN_SPEED = 1.15;
+
+  // ---------- 쫓아오는 그림자 ----------
+  const shade = new THREE.Group();
+  const shadeMat = new THREE.MeshBasicMaterial({ color: 0x020202 });
+  const shadeBody = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.32, 2.1, 10), shadeMat);
+  shadeBody.position.y = 1.05;
+  shade.add(shadeBody);
+  const shadeHead = new THREE.Mesh(new THREE.SphereGeometry(0.2, 14, 12), shadeMat);
+  shadeHead.position.y = 2.25;
+  shade.add(shadeHead);
+  const shadeArms = [];
+  for (const s of [-1, 1]) {
+    const a = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.3, 0.06), shadeMat);
+    a.position.set(s * 0.3, 1.3, 0);
+    a.rotation.z = s * 0.25;
+    shade.add(a);
+    shadeArms.push(a);
+  }
+  const redEye = new THREE.MeshBasicMaterial({ color: 0xff2010, fog: false });
+  for (const x of [-0.07, 0.07]) {
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.025, 8, 8), redEye);
+    e.position.set(x, 2.28, 0.18);
+    shade.add(e);
+  }
+  scene.add(shade);
+
+  // ---------- 소리 (WebAudio로 합성) ----------
+  const audio = { ctx: null, master: null, noiseBuf: null, drone: null, muted: false };
+  function initAudio() {
+    if (audio.ctx) { audio.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    audio.ctx = ctx;
+    audio.master = ctx.createGain();
+    audio.master.gain.value = 0.9;
+    audio.master.connect(ctx.destination);
+    const buf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    audio.noiseBuf = buf;
+    // 형광등 웅웅거림
+    for (const [f, v] of [[60, 0.02], [120, 0.012], [180, 0.004]]) {
+      const o = ctx.createOscillator();
+      o.frequency.value = f;
+      const gn = ctx.createGain();
+      gn.gain.value = v;
+      o.connect(gn).connect(audio.master);
+      o.start();
+    }
+  }
+  function noiseBurst(dur, freq, vol, type) {
+    if (!audio.ctx) return;
+    const ctx = audio.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = audio.noiseBuf;
+    const f = ctx.createBiquadFilter();
+    f.type = type || 'lowpass';
+    f.frequency.value = freq;
+    const gn = ctx.createGain();
+    gn.gain.setValueAtTime(vol, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(f).connect(gn).connect(audio.master);
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + dur + 0.05);
+  }
+  function scream() {
+    if (!audio.ctx) return;
+    noiseBurst(0.9, 1400, 0.7, 'bandpass');
+    const ctx = audio.ctx, t = ctx.currentTime;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(220, t);
+    o.frequency.exponentialRampToValueAtTime(40, t + 0.9);
+    const gn = ctx.createGain();
+    gn.gain.setValueAtTime(0.35, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + 1);
+    o.connect(gn).connect(audio.master);
+    o.start(t);
+    o.stop(t + 1.05);
+  }
+  function droneOn() {
+    if (!audio.ctx || audio.drone) return;
+    const ctx = audio.ctx;
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.value = 38;
+    const f = ctx.createBiquadFilter();
+    f.frequency.value = 300;
+    const gn = ctx.createGain();
+    gn.gain.setValueAtTime(0, ctx.currentTime);
+    gn.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 1.5);
+    o.connect(f).connect(gn).connect(audio.master);
+    o.start();
+    audio.drone = { o, gn };
+  }
+  function droneOff() {
+    if (!audio.drone) return;
+    const { o, gn } = audio.drone, t = audio.ctx.currentTime;
+    gn.gain.cancelScheduledValues(t);
+    gn.gain.setValueAtTime(gn.gain.value, t);
+    gn.gain.linearRampToValueAtTime(0, t + 0.3);
+    o.stop(t + 0.35);
+    audio.drone = null;
+  }
+  function setMuted(m) {
+    audio.muted = m;
+    if (audio.master) audio.master.gain.value = m ? 0 : 0.9;
+    $('sound').textContent = m ? '소리 꺼짐' : '소리 켜짐';
+  }
+
+  // ---------- 플레이어 ----------
+  const player = { x: 0, z: 1.2, yaw: 0, pitch: 0, bob: 0, stepDist: 0 };
+  const AREAS = [
+    [-W / 2 + R, W / 2 - R, -L - W + R, W - R],          // 본 통로
+    [-W / 2 - P + R, W / 2 - R, R, W - R],                // 되돌아가는 쪽
+    [-W / 2 + R, W / 2 + P - R, -L - W + R, -L - R],      // 앞으로 가는 쪽
+  ];
+  const inside = (x, z) => AREAS.some(([x0, x1, z0, z1]) => x >= x0 && x <= x1 && z >= z0 && z <= z1);
+  function tryMove(dx, dz) {
+    if (inside(player.x + dx, player.z + dz)) { player.x += dx; player.z += dz; return; }
+    if (inside(player.x + dx, player.z)) player.x += dx;
+    else if (inside(player.x, player.z + dz)) player.z += dz;
+  }
+
+  // ---------- 이상현상 ----------
+  const ctxA = { t: 0 };
+  const ANOMALIES = [
+    { id: 'eyes', name: '포스터 속 눈', apply() { posters[2].mesh.material.map = eyesTex; } },
+    { id: 'flip', name: '좌우가 뒤집힌 포스터', apply() { posters[1].mesh.scale.x = -1; } },
+    { id: 'extra', name: '늘어난 포스터', apply() { extraPoster.visible = true; } },
+    { id: 'redlight', name: '붉은 조명', apply() {
+      tubes[4].material.color.setHex(0xff2a1a);
+      lamps[2].color.setHex(0xff1a0a);
+      lamps[2].intensity = 1.6;
+    } },
+    { id: 'flicker', name: '깜빡이는 조명', apply() {}, update(dt, t) {
+      const on = Math.sin(t * 23) + Math.sin(t * 7.3) > -0.6 || Math.random() > 0.97;
+      lamps.forEach((l) => { l.intensity = on ? 1 : 0.05; });
+      tubes.forEach((m) => m.material.color.setScalar(on ? 1 : 0.15));
+    } },
+    { id: 'door', name: '열려 있는 문', apply() { doors[1].rotation.y = 0.55; } },
+    { id: 'ext', name: '사라진 소화기', apply() { extinguisher.visible = false; } },
+    { id: 'clock', name: '빠르게 도는 시계', apply() {}, update(dt) {
+      minHand.rotation.z -= dt * 6;
+      hourHand.rotation.z -= dt * 0.5;
+    } },
+    { id: 'giant', name: '거대한 남자', apply() { man.group.scale.setScalar(1.55); } },
+    { id: 'stare', name: '멈춰서 쳐다보는 남자', apply() { npc.mode = 'stare'; } },
+    { id: 'back', name: '뒤로 걷는 남자', apply() { npc.mode = 'backward'; } },
+    { id: 'absent', name: '남자가 없음', apply() { npc.active = false; man.group.visible = false; } },
+    { id: 'blood', name: '천장에서 떨어지는 피', apply() { puddle.visible = true; drips.forEach((d) => { d.visible = true; }); }, update(dt) {
+      drips.forEach((d) => {
+        d.userData.t = (d.userData.t + dt) % 2.2;
+        const k = d.userData.t;
+        d.position.set(0.9 + Math.sin(k * 40) * 0.01, ceil.position.y + H - 0.02 - 0.5 * 9.8 * k * k, -18);
+        d.visible = d.position.y > 0;
+      });
+    } },
+    { id: 'hands', name: '벽의 손자국', apply() { handprints.visible = true; } },
+    { id: 'sign', name: '반대를 가리키는 출구 표지판', apply() { exitSign.mat.map = exitTexLeft; exitSign.mat.needsUpdate = true; } },
+    { id: 'ceiling', name: '내려오는 천장', apply() {}, update() {
+      const k = clamp((-player.z - 4) / 22, 0, 1);
+      ceil.position.y = -1.0 * k * k;
+    } },
+    { id: 'cctv', name: '따라보는 감시 카메라', apply() {}, update() {
+      const dx = player.x - cctv.position.x, dz = player.z - cctv.position.z;
+      const dy = EYE - (H + ceil.position.y - 0.27);
+      cctvHead.rotation.y = Math.atan2(dx, dz);
+      cctvHead.rotation.x = -Math.atan2(dy, Math.hypot(dx, dz));
+    } },
+    { id: 'strip', name: '붉게 물든 점자 블록', apply() { stripMat.color.setHex(0xa8160e); } },
+    { id: 'shade', name: '다가오는 그림자', apply() { shade.visible = true; npc.active = false; man.group.visible = false; }, update(dt, t) {
+      if (!chase.on && player.z < -L * 0.33) { chase.on = true; droneOn(); }
+      shadeArms.forEach((a, i) => { a.rotation.x = Math.sin(t * 13 + i * 2) * 0.5; });
+      if (!chase.on) return;
+      const dx = player.x - shade.position.x, dz = player.z - shade.position.z;
+      const d = Math.hypot(dx, dz);
+      shade.rotation.y = Math.atan2(dx, dz);
+      if (d < 0.85) { caught(); return; }
+      const sp = 3.7 * dt / d;
+      shade.position.x += dx * sp;
+      shade.position.z += dz * sp;
+    } },
+  ];
+  const npc = { mode: 'normal', active: true, phase: 0 };
+  const chase = { on: false };
+
+  // 같은 이상현상이 연달아 나오지 않도록 섞어서 하나씩 뽑음
+  let bag = [];
+  let lastId = null;
+  function drawAnomaly() {
+    if (!bag.length) {
+      bag = ANOMALIES.slice();
+      for (let i = bag.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [bag[i], bag[j]] = [bag[j], bag[i]]; }
+      if (bag[bag.length - 1].id === lastId) bag.unshift(bag.pop());
+    }
+    const a = bag.pop();
+    lastId = a.id;
+    return a;
+  }
+
+  function resetWorld() {
+    posters.forEach((p) => { p.mesh.material.map = p.tex; p.mesh.scale.x = 1; });
+    extraPoster.visible = false;
+    handprints.visible = false;
+    tubes.forEach((m) => m.material.color.setHex(0xffffff));
+    lamps.forEach((l) => { l.color.setHex(0xfff6e6); l.intensity = 1; });
+    doors.forEach((d) => { d.rotation.y = 0; });
+    extinguisher.visible = true;
+    hourHand.rotation.z = CLOCK_H;
+    minHand.rotation.z = CLOCK_M;
+    puddle.visible = false;
+    drips.forEach((d) => { d.visible = false; });
+    exitSign.mat.map = exitTexRight;
+    exitSign.mat.needsUpdate = true;
+    counterSign.mat.map = counterTex[game.count];
+    counterSign.mat.needsUpdate = true;
+    ceil.position.y = 0;
+    cctvHead.rotation.set(CCTV_REST.x, CCTV_REST.y, 0);
+    stripMat.color.setHex(0xe8b91c);
+    man.group.scale.setScalar(1);
+    man.group.visible = true;
+    man.group.position.set(MAN_X, 0, -L + 1);
+    man.group.rotation.y = 0;
+    man.head.rotation.set(0, 0, 0);
+    npc.mode = 'normal';
+    npc.active = true;
+    npc.phase = 0;
+    shade.visible = false;
+    shade.position.set(0, 0, -L - 1.5);
+    shade.rotation.y = 0;
+    chase.on = false;
+    droneOff();
+  }
+
+  function updateMan(dt) {
+    if (!npc.active) return;
+    const g = man.group;
+    const dx = player.x - g.position.x, dz = player.z - g.position.z;
+    if (npc.mode === 'stare' && Math.hypot(dx, dz) < 4.2) npc.mode = 'staring';
+    if (npc.mode === 'staring') {
+      g.rotation.y = Math.atan2(dx, dz);
+      man.head.rotation.x = -0.12;
+      [man.legL, man.legR, man.armL, man.armR].forEach((l) => { l.rotation.x *= 0.85; });
+      return;
+    }
+    npc.phase += dt * 5.2;
+    g.position.z += MAN_SPEED * dt;
+    g.rotation.y = npc.mode === 'backward' ? PI : 0;
+    const s = Math.sin(npc.phase) * 0.45;
+    man.legL.rotation.x = s; man.legR.rotation.x = -s;
+    man.armL.rotation.x = -s * 0.7; man.armR.rotation.x = s * 0.4;
+    g.position.y = Math.abs(Math.cos(npc.phase)) * 0.03 * g.scale.y;
+    if (g.position.z > W - 0.7) { npc.active = false; g.visible = false; }
+  }
+
+  // ---------- 게임 진행 ----------
+  const game = { state: 'title', count: 0, anomaly: null, loops: 0, misses: 0, found: new Set(), startTime: 0, busy: false };
+  let toastTimer = 0;
+  function toast(html, ms) {
+    const el = $('toast');
+    el.innerHTML = html;
+    el.classList.add('on');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('on'), ms || 2600);
+  }
+
+  function newLoop() {
+    game.anomaly = game.loops > 0 && Math.random() < ANOMALY_CHANCE ? drawAnomaly() : null;
+    resetWorld();
+    if (game.anomaly) game.anomaly.apply();
+    player.x = 0; player.z = 1.2; player.yaw = 0; player.pitch = 0;
+  }
+
+  const fadeEl = $('fade');
+  function transition(mid) {
+    game.busy = true;
+    fadeEl.classList.add('on');
+    setTimeout(() => {
+      mid();
+      setTimeout(() => { fadeEl.classList.remove('on'); game.busy = false; }, 350);
+    }, 650);
+  }
+
+  function endLoop(wentBack) {
+    if (game.busy) return;
+    const had = game.anomaly;
+    const correct = wentBack === !!had;
+    game.loops++;
+    transition(() => {
+      if (correct) {
+        game.count++;
+        if (had) game.found.add(had.id);
+        if (game.count >= GOAL) { finish(); return; }
+      } else {
+        game.count = 0;
+        game.misses++;
+        if (had) toast('놓친 이상현상이 있었다…<small>' + had.name + '</small>', 3200);
+        else toast('아무것도 없었다…<small>되돌아갈 필요가 없었다</small>', 3200);
+      }
+      newLoop();
+    });
+  }
+
+  function caught() {
+    if (game.busy) return;
+    game.busy = true;
+    scream();
+    droneOff();
+    const sc = $('scare');
+    sc.classList.add('on');
+    game.loops++;
+    setTimeout(() => {
+      sc.classList.remove('on');
+      transition(() => {
+        game.count = 0;
+        game.misses++;
+        toast('붙잡혔다…<small>' + game.anomaly.name + '</small>', 3200);
+        newLoop();
+      });
+    }, 500);
+  }
+
+  function finish() {
+    game.state = 'end';
+    if (document.pointerLockElement) document.exitPointerLock();
+    const sec = Math.round((performance.now() - game.startTime) / 1000);
+    $('st-time').textContent = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
+    $('st-loops').textContent = game.loops;
+    $('st-miss').textContent = game.misses;
+    $('st-found').textContent = game.found.size + ' / ' + ANOMALIES.length;
+    const names = ANOMALIES.filter((a) => game.found.has(a.id)).map((a) => a.name);
+    $('found-list').textContent = names.length ? '발견: ' + names.join(', ') : '이상현상을 하나도 만나지 않고 나왔다. 운이 좋았다.';
+    $('end-screen').hidden = false;
+    droneOff();
+  }
+
+  function startGame() {
+    initAudio();
+    game.count = 0; game.loops = 0; game.misses = 0; game.found = new Set();
+    bag = []; lastId = null;
+    newLoop();
+    game.state = 'play';
+    game.startTime = performance.now();
+    $('start-screen').hidden = true;
+    $('end-screen').hidden = true;
+    $('sound').hidden = false;
+    $('hint').hidden = false;
+    $('hint').textContent = touchMode ? '' : '클릭해서 시점 고정 · Esc 일시정지';
+    fadeEl.classList.remove('on');
+    lockPointer();
+    setTimeout(() => toast('출구 0<small>통로 끝까지 걸어가 보자</small>', 3000), 500);
+  }
+
+  // ---------- 입력 ----------
+  const keys = {};
+  window.addEventListener('keydown', (e) => {
+    keys[e.code] = true;
+    if (e.code === 'KeyM' && audio.ctx) setMuted(!audio.muted);
+  });
+  window.addEventListener('keyup', (e) => { keys[e.code] = false; });
+  window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+  function lockPointer() {
+    if (touchMode || !cvs.requestPointerLock) return;
+    try { const p = cvs.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (err) { /* 무시 */ }
+  }
+  const look = (dx, dy) => {
+    player.yaw -= dx;
+    player.pitch = clamp(player.pitch - dy, -1.35, 1.35);
+  };
+  document.addEventListener('mousemove', (e) => {
+    if (document.pointerLockElement === cvs && game.state === 'play') look(e.movementX * 0.0022, e.movementY * 0.0022);
+  });
+  document.addEventListener('pointerlockchange', () => {
+    const locked = document.pointerLockElement === cvs;
+    if (!locked && game.state === 'play') { game.state = 'paused'; $('pause-screen').hidden = false; }
+    $('hint').hidden = locked || touchMode;
+  });
+  cvs.addEventListener('click', () => { if (game.state === 'play') lockPointer(); });
+  function resume() {
+    $('pause-screen').hidden = true;
+    game.state = 'play';
+    lockPointer();
+  }
+  $('resume-btn').addEventListener('click', resume);
+  $('pause-screen').addEventListener('click', (e) => { if (e.target === $('pause-screen')) resume(); });
+  $('sound').addEventListener('click', () => setMuted(!audio.muted));
+  $('again-btn').addEventListener('click', startGame);
+
+  // 터치: 왼쪽 절반은 이동 조이스틱, 오른쪽 절반은 시점
+  const stickEl = $('stick'), knob = stickEl.querySelector('i');
+  const touch = { move: null, look: null, mx: 0, mz: 0 };
+  const STICK_R = 48;
+  cvs.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || game.state !== 'play') return;
+    cvs.setPointerCapture(e.pointerId);
+    if (e.clientX < window.innerWidth / 2 && !touch.move) {
+      touch.move = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      stickEl.style.left = e.clientX + 'px';
+      stickEl.style.top = e.clientY + 'px';
+      knob.style.transform = '';
+      stickEl.hidden = false;
+    } else if (!touch.look) {
+      touch.look = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    }
+  });
+  cvs.addEventListener('pointermove', (e) => {
+    if (touch.move && e.pointerId === touch.move.id) {
+      let dx = e.clientX - touch.move.x, dy = e.clientY - touch.move.y;
+      const d = Math.hypot(dx, dy);
+      if (d > STICK_R) { dx *= STICK_R / d; dy *= STICK_R / d; }
+      knob.style.transform = `translate(${dx}px, ${dy}px)`;
+      touch.mx = dx / STICK_R;
+      touch.mz = dy / STICK_R;
+    } else if (touch.look && e.pointerId === touch.look.id) {
+      look((e.clientX - touch.look.x) * 0.006, (e.clientY - touch.look.y) * 0.006);
+      touch.look.x = e.clientX;
+      touch.look.y = e.clientY;
+    }
+  });
+  const endTouch = (e) => {
+    if (touch.move && e.pointerId === touch.move.id) { touch.move = null; touch.mx = touch.mz = 0; stickEl.hidden = true; }
+    if (touch.look && e.pointerId === touch.look.id) touch.look = null;
+  };
+  cvs.addEventListener('pointerup', endTouch);
+  cvs.addEventListener('pointercancel', endTouch);
+
+  // ---------- 메인 루프 ----------
+  const clock3 = new THREE.Clock();
+  function tick() {
+    const dt = Math.min(clock3.getDelta(), 0.05);
+    ctxA.t += dt;
+    if (game.state === 'play' && !game.busy) {
+      let f = 0, s = 0;
+      if (keys.KeyW || keys.ArrowUp) f += 1;
+      if (keys.KeyS || keys.ArrowDown) f -= 1;
+      if (keys.KeyD || keys.ArrowRight) s += 1;
+      if (keys.KeyA || keys.ArrowLeft) s -= 1;
+      f -= touch.mz; s += touch.mx;
+      const mag = Math.hypot(f, s);
+      if (mag > 1) { f /= mag; s /= mag; }
+      const running = keys.ShiftLeft || keys.ShiftRight || Math.hypot(touch.mx, touch.mz) > 0.95;
+      const sp = (running ? RUN : WALK) * dt;
+      const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw);
+      const dx = (-sy * f + cy * s) * sp, dz = (-cy * f - sy * s) * sp;
+      const ox = player.x, oz = player.z;
+      tryMove(dx, dz);
+      const moved = Math.hypot(player.x - ox, player.z - oz);
+      player.bob += moved * 2.4;
+      player.stepDist += moved;
+      if (player.stepDist > (running ? 0.85 : 0.7)) { player.stepDist = 0; noiseBurst(0.12, 500 + Math.random() * 200, 0.22); }
+
+      updateMan(dt);
+      if (game.anomaly && game.anomaly.update) game.anomaly.update(dt, ctxA.t);
+
+      // 갈림길에 들어서면 판정
+      if (player.z > 0 && player.x < -W / 2 - 2.2) endLoop(true);
+      else if (player.z < -L && player.x > W / 2 + 2.2) endLoop(false);
+    }
+    camera.position.set(player.x, EYE + Math.sin(player.bob) * 0.035, player.z);
+    camera.rotation.set(player.pitch, player.yaw, 0);
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+  }
+
+  // 한글 글꼴이 늦게 로딩되면 글자가 대체 글꼴로 그려지므로, 로딩 뒤 모든 캔버스를 다시 그림
+  // (손자국처럼 무작위로 그리는 것도 다시 그려지지만 게임 시작 전이라 상관없음)
+  const fontReady = document.fonts && document.fonts.load
+    ? Promise.race([
+      Promise.all([document.fonts.load('40px "Black Han Sans"', '출구'), document.fonts.load('20px "IBM Plex Sans KR"', '통로')]),
+      new Promise((r) => setTimeout(r, 3000)),
+    ]).catch(() => {})
+    : Promise.resolve();
+  fontReady.then(() => {
+    canvases.forEach(({ c, draw, t }) => {
+      const g = c.getContext('2d');
+      g.clearRect(0, 0, c.width, c.height);
+      draw(g, c.width, c.height);
+      t.needsUpdate = true;
+    });
+    newLoop();
+    if (touchMode) { $('keys-desktop').hidden = true; $('keys-touch').hidden = false; }
+    const btn = $('start-btn');
+    btn.disabled = false;
+    btn.textContent = '통로로 들어가기';
+    btn.addEventListener('click', startGame);
+    fadeEl.classList.remove('on');
+    requestAnimationFrame(tick);
+  });
+})();
+</script>
+</body>
+</html>
