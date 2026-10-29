@@ -11,7 +11,7 @@
   --bg: #050505;
   --panel: rgba(12, 13, 15, 0.9);
   --ink: #e9e6df;
-  --muted: #9a968d;
+  --muted: #b8b3a9;
   --accent: #f2a33a;
   --danger: #c0281e;
   --line: rgba(255, 255, 255, 0.12);
@@ -46,11 +46,12 @@ body {
 #toast {
   position: absolute; left: 50%; top: 28%; transform: translate(-50%, -50%);
   max-width: calc(100% - 32px); text-align: center; pointer-events: none;
-  font-size: 17px; line-height: 1.6; color: var(--ink); text-shadow: 0 1px 6px #000;
+  padding: 12px 22px; border-radius: 12px; background: rgba(8, 8, 9, 0.72);
+  font-size: 21px; font-weight: 700; line-height: 1.5; color: #fbf8f2; text-shadow: 0 1px 4px #000;
   opacity: 0; transition: opacity 0.6s;
 }
 #toast.on { opacity: 1; }
-#toast small { display: block; color: var(--muted); font-size: 13px; }
+#toast small { display: block; margin-top: 2px; color: #ebe5d9; font-size: 16px; font-weight: 600; }
 #caption {
   position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 48px); transform: translateX(-50%);
   max-width: calc(100% - 32px); padding: 6px 12px; border-radius: 6px; background: rgba(0, 0, 0, 0.6);
@@ -86,7 +87,7 @@ body {
 .card h1, .card h2 { font-family: var(--font-display); font-weight: 400; margin: 0 0 6px; letter-spacing: 0.02em; }
 .card h1 { font-size: 34px; color: var(--accent); }
 .card h2 { font-size: 26px; }
-.card p { margin: 6px 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
+.card p { margin: 6px 0; color: var(--muted); font-size: 15px; line-height: 1.6; }
 .rules { margin: 14px 0; padding: 12px 14px; border-left: 3px solid var(--accent); background: rgba(255, 255, 255, 0.04); }
 .rules ol { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.75; }
 .keys { font-size: 13px; color: var(--muted); line-height: 1.7; }
@@ -113,7 +114,14 @@ kbd {
 .stats .wide { grid-column: 1 / -1; }
 .stats span { display: block; font-size: 11px; color: var(--muted); }
 .stats b { font-family: var(--font-display); font-weight: 400; font-size: 22px; }
-#found-list { font-size: 13px; color: var(--muted); line-height: 1.7; }
+#found-list { font-size: 14px; color: var(--ink); line-height: 1.7; }
+.record { margin-top: 14px; font-size: 13px; }
+.record summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+.record table { width: 100%; margin-top: 8px; border-collapse: collapse; }
+.record td, .record th { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: left; color: var(--ink); font-weight: 400; }
+.record th { color: var(--muted); font-size: 12px; }
+.record td:last-child, .record th:last-child { text-align: right; white-space: nowrap; }
+.record .link { margin-top: 8px; padding: 0; border: 0; background: none; font: inherit; color: var(--muted); text-decoration: underline; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -176,6 +184,15 @@ kbd {
         <div class="wide"><span>발견한 이상현상</span><b id="st-found">0</b></div>
       </div>
       <p id="found-list"></p>
+      <details class="record">
+        <summary>누적 기록 (이 브라우저에만 저장)</summary>
+        <p id="record-summary"></p>
+        <table>
+          <thead><tr><th>이상현상 (발견률 낮은 순)</th><th>맞힘 / 만남</th></tr></thead>
+          <tbody id="record-rows"></tbody>
+        </table>
+        <button class="link" id="record-reset" type="button">기록 지우기</button>
+      </details>
       <p class="label">다시 할 난이도</p>
       <div class="modes">
         <button type="button" data-mode="relaxed" aria-pressed="false"><b>느긋하게</b><span>문이 계속 열려 있음</span></button>
@@ -227,8 +244,14 @@ kbd {
 
   // ---------- 렌더러 / 장면 ----------
   const renderer = new THREE.WebGLRenderer({ antialias: true });
-  const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.75);
-  renderer.setPixelRatio(pixelRatio);
+  // 화질 단계: 프레임이 낮으면 화면 해상도와 거울 해상도를 한 단계씩 낮춤. 터치 기기는 한 단계 낮게 시작
+  const QUALITY = [
+    { pr: Math.min(window.devicePixelRatio || 1, 1.75), mirror: 0.6 },
+    { pr: Math.min(window.devicePixelRatio || 1, 1.25), mirror: 0.45 },
+    { pr: 1, mirror: 0.3 },
+  ];
+  let quality = touchMode ? 1 : 0;
+  renderer.setPixelRatio(QUALITY[quality].pr);
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   $('stage').appendChild(renderer.domElement);
@@ -1479,6 +1502,7 @@ kbd {
     if (player.z < FRONT) { fail('missed'); return; } // 문이 닫힐 때 로비에 있었음
     const correct = game.choice !== 'timeout' && (game.choice === 'down') === !!had;
     if (correct) {
+      recordLoop(had, true, null);
       game.count++;
       if (had) game.found.add(had.id);
       startRide(game.choice);
@@ -1499,6 +1523,7 @@ kbd {
     const also = had ? ' · 이상현상: ' + had.name : '';
     game.misses++;
     if (kind === 'missed' || kind === 'timeout') game.timeouts++;
+    recordLoop(had, false, kind);
     if (kind === 'missed') game.failMsg = '엘리베이터를 놓쳤다…<small>문이 닫힐 때 밖에 있었다' + also + '</small>';
     else if (kind === 'timeout') game.failMsg = '시간 안에 고르지 못했다…<small>문이 닫혀 버렸다' + also + '</small>';
     else if (kind === 'caught') game.failMsg = '관리인에게 붙잡혔다…<small>▼를 눌렀어야 했다</small>';
@@ -1572,10 +1597,69 @@ kbd {
     $('st-found').textContent = game.found.size + ' / ' + ANOMALIES.length;
     const names = ANOMALIES.filter((a) => game.found.has(a.id)).map((a) => a.name);
     $('found-list').textContent = names.length ? '발견: ' + names.join(', ') : '이상현상을 하나도 만나지 않고 올라왔다. 운이 좋았다.';
+    record.clears++;
+    saveRecord();
+    renderRecord();
     $('end-screen').hidden = false;
     $('whiteout').classList.remove('on');
     setMotor(0, 0);
   }
+
+  // ---------- 누적 기록 (난이도 조정용. 이 브라우저의 localStorage에만 저장) ----------
+  const RECORD_KEY = 'elevator-record-v1';
+  const emptyRecord = () => ({ clears: 0, loops: 0, normalLoops: 0, falseAlarms: 0, timeouts: 0, anomalies: {} });
+  function loadRecord() {
+    try {
+      const r = JSON.parse(localStorage.getItem(RECORD_KEY));
+      if (r && r.anomalies) return Object.assign(emptyRecord(), r);
+    } catch (err) { /* 저장소를 못 쓰면 이번 방문 동안만 기록 */ }
+    return emptyRecord();
+  }
+  let record = loadRecord();
+  function saveRecord() {
+    try { localStorage.setItem(RECORD_KEY, JSON.stringify(record)); } catch (err) { /* 무시 */ }
+  }
+  // 루프 하나가 끝날 때마다: 이상현상을 맞혔는지, 정상 층에서 ▼를 눌렀는지(오탐), 시간 초과였는지
+  function recordLoop(had, correct, kind) {
+    record.loops++;
+    if (kind === 'missed' || kind === 'timeout') record.timeouts++;
+    if (had) {
+      const a = record.anomalies[had.id] || (record.anomalies[had.id] = [0, 0]);
+      a[0]++;
+      if (correct) a[1]++;
+    } else {
+      record.normalLoops++;
+      if (kind === 'wrong') record.falseAlarms++;
+    }
+    saveRecord();
+  }
+  const TIER_NAME = { easy: '쉬움', normal: '보통', hard: '어려움' };
+  function renderRecord() {
+    const pct = (a, b) => (b ? Math.round((a / b) * 100) + '%' : '-');
+    $('record-summary').textContent = '완주 ' + record.clears + '번 · 탄 횟수 ' + record.loops
+      + ' · 정상 층에서 ▼ ' + pct(record.falseAlarms, record.normalLoops) + ' (' + record.falseAlarms + '/' + record.normalLoops + ')'
+      + ' · 시간 초과 ' + pct(record.timeouts, record.loops);
+    const rows = ANOMALIES.map((a) => ({ a, r: record.anomalies[a.id] || [0, 0] }))
+      .filter((x) => x.r[0] > 0)
+      .sort((x, y) => x.r[1] / x.r[0] - y.r[1] / y.r[0]);
+    const body = $('record-rows');
+    body.textContent = '';
+    if (!rows.length) rows.push(null);
+    for (const x of rows) {
+      const tr = document.createElement('tr');
+      const name = document.createElement('td'), val = document.createElement('td');
+      name.textContent = x ? x.a.name + ' (' + TIER_NAME[x.a.tier] + ')' : '아직 만난 이상현상이 없음';
+      val.textContent = x ? x.r[1] + ' / ' + x.r[0] + ' · ' + pct(x.r[1], x.r[0]) : '';
+      tr.append(name, val);
+      body.appendChild(tr);
+    }
+  }
+  $('record-reset').addEventListener('click', () => {
+    if (!window.confirm('누적 기록을 지울까요?')) return;
+    record = emptyRecord();
+    saveRecord();
+    renderRecord();
+  });
 
   function startGame() {
     initAudio();
@@ -1665,7 +1749,7 @@ kbd {
   const STICK_R = 48;
   cvs.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse' || game.state !== 'play') return;
-    cvs.setPointerCapture(e.pointerId);
+    try { cvs.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
     const info = { id: e.pointerId, x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() };
     if (e.clientX < window.innerWidth / 2 && !touch.move) {
       touch.move = info;
@@ -1771,9 +1855,26 @@ kbd {
     setGlass(glass.open);
   }
 
+  // 3초마다 평균 프레임 수를 재서 40fps보다 낮으면 화질을 한 단계 낮춤
+  const perf = { time: 0, frames: 0 };
+  function watchFps(raw) {
+    perf.time += raw;
+    perf.frames++;
+    if (perf.time < 3) return;
+    if (perf.frames / perf.time < 40 && quality < QUALITY.length - 1) {
+      quality++;
+      renderer.setPixelRatio(QUALITY[quality].pr);
+      resize();
+    }
+    perf.time = 0;
+    perf.frames = 0;
+  }
+
   const clock = new THREE.Clock();
   function tick() {
-    const dt = Math.min(clock.getDelta(), 0.05);
+    const raw = clock.getDelta();
+    const dt = Math.min(raw, 0.05);
+    if (game.state === 'play') watchFps(raw);
     if (game.state !== 'play') { shakeAmp = 0; sink = 0; }
     if (game.state === 'play') {
       game.t += dt;
@@ -1942,7 +2043,8 @@ kbd {
     renderer.setSize(w, h);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    mirror.setSize(Math.round(w * pixelRatio * 0.6), Math.round(h * pixelRatio * 0.6));
+    const q = QUALITY[quality];
+    mirror.setSize(Math.round(w * q.pr * q.mirror), Math.round(h * q.pr * q.mirror));
   }
   window.addEventListener('resize', resize);
   resize();
