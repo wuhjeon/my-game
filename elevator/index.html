@@ -62,8 +62,8 @@ body {
   position: absolute; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
   font-size: 12px; color: var(--muted); pointer-events: none;
 }
-#sound {
-  position: absolute; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 12px);
+#top-buttons { position: absolute; right: 16px; top: calc(env(safe-area-inset-top, 0px) + 12px); display: flex; gap: 6px; }
+#top-buttons button {
   font: inherit; font-size: 12px; color: var(--muted); background: var(--panel);
   border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; cursor: pointer;
 }
@@ -109,6 +109,7 @@ kbd {
   font: inherit; font-weight: 700; font-size: 16px; background: var(--accent); color: #17130c; cursor: pointer;
 }
 .btn:disabled { opacity: 0.5; cursor: default; }
+.btn.secondary { background: rgba(255, 255, 255, 0.08); color: var(--ink); border: 1px solid var(--line); margin-top: 10px; }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 14px 0 4px; }
 .stats div { background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 8px 10px; }
 .stats .wide { grid-column: 1 / -1; }
@@ -117,6 +118,7 @@ kbd {
 #found-list { font-size: 14px; color: var(--ink); line-height: 1.7; }
 .record { margin-top: 14px; font-size: 13px; }
 .record summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+.record select { margin-top: 10px; font: inherit; font-size: 13px; padding: 4px 8px; border-radius: 6px; background: #1d1f22; color: var(--ink); border: 1px solid var(--line); }
 .record table { width: 100%; margin-top: 8px; border-collapse: collapse; }
 .record td, .record th { padding: 5px 4px; border-bottom: 1px solid var(--line); text-align: left; color: var(--ink); font-weight: 400; }
 .record th { color: var(--muted); font-size: 12px; }
@@ -131,7 +133,10 @@ kbd {
   <div id="toast"></div>
   <div id="caption"></div>
   <div id="hint" hidden></div>
-  <button id="sound" type="button" hidden>소리 켜짐</button>
+  <div id="top-buttons" hidden>
+    <button id="pause-btn" type="button">일시정지</button>
+    <button id="sound" type="button">소리 켜짐</button>
+  </div>
   <div id="stick" class="stick" hidden><i></i></div>
   <div id="whiteout"></div>
   <div id="fade" class="on"></div>
@@ -170,6 +175,16 @@ kbd {
       <h2>일시정지</h2>
       <p>화면을 클릭하면 이어서 한다.</p>
       <button class="btn" id="resume-btn" type="button">계속하기</button>
+      <button class="btn secondary" id="choose-btn" type="button" aria-expanded="false">난이도 선택하기</button>
+      <div id="pause-modes" hidden>
+        <p class="label">난이도를 바꾸면 지하 8층부터 새로 시작한다</p>
+        <div class="modes pause-modes">
+          <button type="button" data-mode="relaxed" aria-pressed="false"><b>느긋하게</b><span>문이 계속 열림 · 이상현상 적음</span></button>
+          <button type="button" data-mode="normal" aria-pressed="false"><b>보통</b><span>문이 계속 열림 · 이상현상 보통</span></button>
+          <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 이상현상 많음</span></button>
+        </div>
+        <button class="btn" id="restart-btn" type="button">이 난이도로 지하 8층부터</button>
+      </div>
     </div>
   </div>
 
@@ -186,13 +201,18 @@ kbd {
       </div>
       <p id="found-list"></p>
       <details class="record">
-        <summary>누적 기록 (이 브라우저에만 저장)</summary>
+        <summary>누적 기록 (난이도별, 이 브라우저에만 저장)</summary>
+        <select id="record-mode" aria-label="기록을 볼 난이도">
+          <option value="relaxed">느긋하게</option>
+          <option value="normal">보통</option>
+          <option value="hard">어려움</option>
+        </select>
         <p id="record-summary"></p>
         <table>
           <thead><tr><th>이상현상 (발견률 낮은 순)</th><th>맞힘 / 만남</th></tr></thead>
           <tbody id="record-rows"></tbody>
         </table>
-        <button class="link" id="record-reset" type="button">기록 지우기</button>
+        <button class="link" id="record-reset" type="button">이 난이도 기록 지우기</button>
       </details>
       <p class="label">다시 할 난이도</p>
       <div class="modes">
@@ -1472,7 +1492,7 @@ kbd {
   const game = {
     state: 'title', phase: 'idle', t: 0, mode: 'normal', count: 0, anomaly: null, choice: null,
     openLeft: 0, extends: 0, warned: 0, loops: 0, misses: 0, timeouts: 0, found: new Set(), startTime: 0, nodT: -1,
-    fromFloor: 'B8', arrow: null, failMsg: null,
+    fromFloor: 'B8', arrow: null, failMsg: null, gen: 0,
   };
   let toastTimer = 0;
   function toast(html, ms) {
@@ -1594,7 +1614,9 @@ kbd {
     setMotor(0, 0);
     game.count = 0;
     game.fromFloor = FLOORS[0];
+    const gen = game.gen;
     setTimeout(() => {
+      if (gen !== game.gen) return; // 그 사이에 새 판을 시작함
       player.x = 0; player.z = 0.4; player.yaw = 0; player.pitch = 0;
       // 추락 직후의 루프는 운행이 없으므로 운행 중 이상현상은 제외
       game.anomaly = Math.random() < ANOMALY_CHANCE[game.mode] ? drawAnomaly(false) : null;
@@ -1608,14 +1630,15 @@ kbd {
       fade.classList.remove('instant');
       fade.classList.remove('on');
       toast(game.failMsg, 3600);
-      setTimeout(() => { if (game.phase === 'crashed') { ding(); doorSound(); setPhase('opening'); } }, 900);
+      setTimeout(() => { if (gen === game.gen && game.phase === 'crashed') { ding(); doorSound(); setPhase('opening'); } }, 900);
     }, instant ? 1400 : 900);
   }
 
   function startExit() {
     setPhase('exit');
     $('whiteout').classList.add('on');
-    setTimeout(finish, 1700);
+    const gen = game.gen;
+    setTimeout(() => { if (gen === game.gen) finish(); }, 1700);
   }
 
   function finish() {
@@ -1630,8 +1653,9 @@ kbd {
     $('st-found').textContent = game.found.size + ' / ' + ANOMALIES.length;
     const names = ANOMALIES.filter((a) => game.found.has(a.id)).map((a) => a.name);
     $('found-list').textContent = names.length ? '발견: ' + names.join(', ') : '이상현상을 하나도 만나지 않고 올라왔다. 운이 좋았다.';
-    record.clears++;
+    record[game.mode].clears++;
     saveRecord();
+    $('record-mode').value = game.mode; // 방금 한 난이도의 기록을 먼저 보여 줌
     renderRecord();
     $('end-screen').hidden = false;
     $('whiteout').classList.remove('on');
@@ -1639,14 +1663,19 @@ kbd {
   }
 
   // ---------- 누적 기록 (난이도 조정용. 이 브라우저의 localStorage에만 저장) ----------
-  const RECORD_KEY = 'elevator-record-v1';
-  const emptyRecord = () => ({ clears: 0, loops: 0, normalLoops: 0, falseAlarms: 0, timeouts: 0, anomalies: {} });
+  // 난이도마다 이상현상 확률이 달라서 따로 셈. (v1은 난이도를 섞어 셌으므로 새 키로 시작)
+  const RECORD_KEY = 'elevator-record-v2';
+  const MODES = ['relaxed', 'normal', 'hard'];
+  const MODE_NAME = { relaxed: '느긋하게', normal: '보통', hard: '어려움' };
+  const emptyStats = () => ({ clears: 0, loops: 0, normalLoops: 0, falseAlarms: 0, timeouts: 0, anomalies: {} });
+  const emptyRecord = () => ({ relaxed: emptyStats(), normal: emptyStats(), hard: emptyStats() });
   function loadRecord() {
+    const rec = emptyRecord();
     try {
       const r = JSON.parse(localStorage.getItem(RECORD_KEY));
-      if (r && r.anomalies) return Object.assign(emptyRecord(), r);
+      if (r) MODES.forEach((m) => { if (r[m] && r[m].anomalies) rec[m] = Object.assign(emptyStats(), r[m]); });
     } catch (err) { /* 저장소를 못 쓰면 이번 방문 동안만 기록 */ }
-    return emptyRecord();
+    return rec;
   }
   let record = loadRecord();
   function saveRecord() {
@@ -1654,25 +1683,28 @@ kbd {
   }
   // 루프 하나가 끝날 때마다: 이상현상을 맞혔는지, 정상 층에서 ▼를 눌렀는지(오탐), 시간 초과였는지
   function recordLoop(had, correct, kind) {
-    record.loops++;
-    if (kind === 'missed' || kind === 'timeout') record.timeouts++;
+    const r = record[game.mode];
+    r.loops++;
+    if (kind === 'missed' || kind === 'timeout') r.timeouts++;
     if (had) {
-      const a = record.anomalies[had.id] || (record.anomalies[had.id] = [0, 0]);
+      const a = r.anomalies[had.id] || (r.anomalies[had.id] = [0, 0]);
       a[0]++;
       if (correct) a[1]++;
     } else {
-      record.normalLoops++;
-      if (kind === 'wrong') record.falseAlarms++;
+      r.normalLoops++;
+      if (kind === 'wrong') r.falseAlarms++;
     }
     saveRecord();
   }
   const TIER_NAME = { easy: '쉬움', normal: '보통', hard: '어려움' };
   function renderRecord() {
+    const mode = $('record-mode').value;
+    const rec = record[mode];
     const pct = (a, b) => (b ? Math.round((a / b) * 100) + '%' : '-');
-    $('record-summary').textContent = '완주 ' + record.clears + '번 · 탄 횟수 ' + record.loops
-      + ' · 정상 층에서 ▼ ' + pct(record.falseAlarms, record.normalLoops) + ' (' + record.falseAlarms + '/' + record.normalLoops + ')'
-      + ' · 시간 초과 ' + pct(record.timeouts, record.loops);
-    const rows = ANOMALIES.map((a) => ({ a, r: record.anomalies[a.id] || [0, 0] }))
+    $('record-summary').textContent = MODE_NAME[mode] + ': 완주 ' + rec.clears + '번 · 탄 횟수 ' + rec.loops
+      + ' · 정상 층에서 ▼ ' + pct(rec.falseAlarms, rec.normalLoops) + ' (' + rec.falseAlarms + '/' + rec.normalLoops + ')'
+      + (mode === 'hard' ? ' · 시간 초과 ' + pct(rec.timeouts, rec.loops) : '');
+    const rows = ANOMALIES.map((a) => ({ a, r: rec.anomalies[a.id] || [0, 0] }))
       .filter((x) => x.r[0] > 0)
       .sort((x, y) => x.r[1] / x.r[0] - y.r[1] / y.r[0]);
     const body = $('record-rows');
@@ -1688,14 +1720,17 @@ kbd {
     }
   }
   $('record-reset').addEventListener('click', () => {
-    if (!window.confirm('누적 기록을 지울까요?')) return;
-    record = emptyRecord();
+    const mode = $('record-mode').value;
+    if (!window.confirm(MODE_NAME[mode] + ' 난이도의 누적 기록을 지울까요?')) return;
+    record[mode] = emptyStats();
     saveRecord();
     renderRecord();
   });
+  $('record-mode').addEventListener('change', renderRecord);
 
   function startGame() {
     initAudio();
+    game.gen++;
     Object.assign(game, { count: 0, loops: 0, misses: 0, timeouts: 0, found: new Set(), anomaly: null, choice: null, fromFloor: FLOORS[0], arrow: null });
     bag = []; lastId = null;
     player.x = 0; player.z = 0.4; player.yaw = 0; player.pitch = 0;
@@ -1706,8 +1741,9 @@ kbd {
     game.startTime = performance.now();
     $('start-screen').hidden = true;
     $('end-screen').hidden = true;
+    $('pause-screen').hidden = true;
     $('whiteout').classList.remove('on');
-    $('sound').hidden = false;
+    $('top-buttons').hidden = false;
     $('hint').hidden = touchMode;
     $('fade').classList.remove('on');
     lockPointer();
@@ -1741,7 +1777,7 @@ kbd {
   });
   document.addEventListener('pointerlockchange', () => {
     const locked = document.pointerLockElement === cvs;
-    if (!locked && game.state === 'play') { game.state = 'paused'; $('pause-screen').hidden = false; }
+    if (!locked) pause();
     $('hint').hidden = locked || touchMode || game.state !== 'play';
   });
   cvs.addEventListener('click', () => {
@@ -1749,21 +1785,51 @@ kbd {
     if (document.pointerLockElement !== cvs) { lockPointer(); return; }
     if (hovered) press(hovered.userData.id);
   });
+  function pause() {
+    if (game.state !== 'play') return;
+    game.state = 'paused';
+    $('pause-screen').hidden = false;
+    $('pause-modes').hidden = true;
+    $('choose-btn').hidden = false;
+    $('choose-btn').setAttribute('aria-expanded', 'false');
+  }
   function resume() {
     $('pause-screen').hidden = true;
     game.state = 'play';
     lockPointer();
   }
+  // 일시정지 버튼: PC에서는 포인터 고정을 풀면 pointerlockchange가 pause()를 부름
+  $('pause-btn').addEventListener('click', () => {
+    if (document.pointerLockElement) document.exitPointerLock();
+    else pause();
+  });
+  // 일시정지 중 난이도 선택: 고르는 동안에는 지금 판의 난이도를 바꾸지 않고, 다시 시작할 때 적용
+  let pauseMode = 'normal';
+  const pauseModeButtons = document.querySelectorAll('.pause-modes button');
+  const showPauseMode = () => pauseModeButtons.forEach((o) => o.setAttribute('aria-pressed', String(o.dataset.mode === pauseMode)));
+  pauseModeButtons.forEach((b) => b.addEventListener('click', () => { pauseMode = b.dataset.mode; showPauseMode(); }));
+  $('choose-btn').addEventListener('click', () => {
+    pauseMode = game.mode;
+    showPauseMode();
+    $('pause-modes').hidden = false;
+    $('choose-btn').hidden = true;
+    $('choose-btn').setAttribute('aria-expanded', 'true');
+  });
+  $('restart-btn').addEventListener('click', () => {
+    setMode(pauseMode);
+    startGame();
+  });
   $('resume-btn').addEventListener('click', resume);
   $('pause-screen').addEventListener('click', (e) => { if (e.target === $('pause-screen')) resume(); });
   $('sound').addEventListener('click', () => setMuted(!audio.muted));
   $('again-btn').addEventListener('click', startGame);
   // 난이도 버튼은 시작 화면과 결말 화면에 하나씩 있고 서로 같은 값을 보여 줌
-  const modeButtons = document.querySelectorAll('.modes button');
-  modeButtons.forEach((b) => b.addEventListener('click', () => {
-    game.mode = b.dataset.mode;
-    modeButtons.forEach((o) => o.setAttribute('aria-pressed', String(o.dataset.mode === game.mode)));
-  }));
+  const modeButtons = document.querySelectorAll('#start-screen .modes button, #end-screen .modes button');
+  function setMode(m) {
+    game.mode = m;
+    modeButtons.forEach((o) => o.setAttribute('aria-pressed', String(o.dataset.mode === m)));
+  }
+  modeButtons.forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
   document.querySelectorAll('.open-sec').forEach((el) => { el.textContent = OPEN_TIME; });
 
   // 조준한 버튼 찾기
