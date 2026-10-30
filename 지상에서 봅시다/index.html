@@ -239,7 +239,10 @@ kbd {
   const EYE = 1.6;
   const FLOORS = ['B8', 'B7', 'B6', 'B5', 'B4', 'B3', 'B2', 'B1', '1F'];
   const GOAL = FLOORS.length - 1;
-  const ANOMALY_CHANCE = { relaxed: 0.3, normal: 0.45, hard: 0.6 }; // 난이도별 이상현상 확률 (어려움 = 느긋하게의 2배)
+  // 난이도별 기본 이상현상 확률. 지하 3층부터는 한 층 오를 때마다 +0.05 (B3 +0.05, B2 +0.10, B1 +0.15), 최대 0.85
+  const ANOMALY_CHANCE = { relaxed: 0.4, normal: 0.55, hard: 0.65 };
+  const RAMP_FROM = 5, RAMP_STEP = 0.05, MAX_CHANCE = 0.85; // FLOORS[5] = B3
+  const anomalyChance = (floorIndex) => Math.min(MAX_CHANCE, ANOMALY_CHANCE[game.mode] + Math.max(0, floorIndex - RAMP_FROM + 1) * RAMP_STEP);
   const RIDE_TIME = 6, LONG_RIDE_TIME = 25;
   const MID_AT = 2, MID_STOP = 3.4;     // 층 사이에서 멈추는 이상현상: 멈추는 시각과 길이
   const DOOR_TIME = 1.2;
@@ -1508,7 +1511,7 @@ kbd {
   // 다음 층으로 운행 시작. 이번 루프의 이상현상은 여기서 정해짐 (운행 중 이상현상도 이번 루프에 속함)
   function startRide(arrow) {
     const final = game.count >= GOAL;
-    game.anomaly = !final && game.loops > 0 && Math.random() < ANOMALY_CHANCE[game.mode] ? drawAnomaly(true) : null;
+    game.anomaly = !final && game.loops > 0 && Math.random() < anomalyChance(game.count) ? drawAnomaly(true) : null;
     resetWorld(FLOORS[game.count]);
     if (game.anomaly) game.anomaly.apply();
     game.arrow = arrow;
@@ -1619,7 +1622,7 @@ kbd {
       if (gen !== game.gen) return; // 그 사이에 새 판을 시작함
       player.x = 0; player.z = 0.4; player.yaw = 0; player.pitch = 0;
       // 추락 직후의 루프는 운행이 없으므로 운행 중 이상현상은 제외
-      game.anomaly = Math.random() < ANOMALY_CHANCE[game.mode] ? drawAnomaly(false) : null;
+      game.anomaly = Math.random() < anomalyChance(0) ? drawAnomaly(false) : null;
       resetWorld(FLOORS[0]);
       setDoor(0);
       if (game.anomaly) {
