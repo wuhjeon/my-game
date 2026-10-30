@@ -239,9 +239,9 @@ kbd {
   const EYE = 1.6;
   const FLOORS = ['B8', 'B7', 'B6', 'B5', 'B4', 'B3', 'B2', 'B1', '1F'];
   const GOAL = FLOORS.length - 1;
-  // 난이도별 기본 이상현상 확률. 지하 3층부터는 한 층 오를 때마다 +0.05 (B3 +0.05, B2 +0.10, B1 +0.15), 최대 0.85
+  // 난이도별 기본 이상현상 확률. 지하 3층부터는 한 층 오를 때마다 +0.03 (B3 +0.03, B2 +0.06, B1 +0.09), 최대 0.85
   const ANOMALY_CHANCE = { relaxed: 0.4, normal: 0.55, hard: 0.65 };
-  const RAMP_FROM = 5, RAMP_STEP = 0.05, MAX_CHANCE = 0.85; // FLOORS[5] = B3
+  const RAMP_FROM = 5, RAMP_STEP = 0.03, MAX_CHANCE = 0.85; // FLOORS[5] = B3
   const anomalyChance = (floorIndex) => Math.min(MAX_CHANCE, ANOMALY_CHANCE[game.mode] + Math.max(0, floorIndex - RAMP_FROM + 1) * RAMP_STEP);
   const RIDE_TIME = 6, LONG_RIDE_TIME = 25;
   const MID_AT = 2, MID_STOP = 3.4;     // 층 사이에서 멈추는 이상현상: 멈추는 시각과 길이
