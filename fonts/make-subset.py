@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Rebuild the subset WOFF2 web fonts in this folder.
+"""Rebuild the subset Black Han Sans WOFF2 web font in this folder.
+
+Only Black Han Sans is subset. IBM Plex Sans KR is shipped as IBM's official,
+unmodified WOFF2 files (the OFL Reserved Font Name "Plex" forbids modified
+versions, such as subsets, from using that name), so it is NOT handled here.
 
 Usage:
     pip install fonttools brotli
     python3 fonts/make-subset.py <SOURCE_TTF_DIR> [--out <OUT_DIR>] [--repo <REPO_ROOT>]
 
-SOURCE_TTF_DIR must contain the original TTFs from https://github.com/google/fonts :
-    BlackHanSans-Regular.ttf          (ofl/blackhansans/)
-    IBMPlexSansKR-Regular.ttf         (ofl/ibmplexsanskr/)
-    IBMPlexSansKR-SemiBold.ttf        (ofl/ibmplexsanskr/)
-    IBMPlexSansKR-Bold.ttf            (ofl/ibmplexsanskr/)
+SOURCE_TTF_DIR must contain BlackHanSans-Regular.ttf from
+https://github.com/google/fonts (ofl/blackhansans/).
 
 OUT_DIR defaults to the folder this script lives in (fonts/), REPO_ROOT to its parent.
 
@@ -19,7 +20,7 @@ Character set = union of
   c) Hangul Compatibility Jamo U+3131-U+318E
   d) every character found in the repository's tracked *.html files
   e) common punctuation (· … – — ‘ ’ ‚ ‛ “ ” NBSP ×)
-Characters a font does not contain are simply dropped by the subsetter.
+Characters the font does not contain are simply dropped by the subsetter.
 """
 import argparse
 import os
@@ -31,9 +32,6 @@ from fontTools import subset
 FACES = [
     # (source TTF, output WOFF2)
     ("BlackHanSans-Regular.ttf", "BlackHanSans-400.woff2"),
-    ("IBMPlexSansKR-Regular.ttf", "IBMPlexSansKR-400.woff2"),
-    ("IBMPlexSansKR-SemiBold.ttf", "IBMPlexSansKR-600.woff2"),
-    ("IBMPlexSansKR-Bold.ttf", "IBMPlexSansKR-700.woff2"),
 ]
 
 
@@ -81,7 +79,7 @@ def build_charset(repo):
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("src", help="directory containing the original TTF files")
+    ap.add_argument("src", help="directory containing BlackHanSans-Regular.ttf")
     ap.add_argument("--out", default=here, help="output directory (default: this script's folder)")
     ap.add_argument("--repo", default=os.path.dirname(here), help="repository root to scan for *.html")
     args = ap.parse_args()
