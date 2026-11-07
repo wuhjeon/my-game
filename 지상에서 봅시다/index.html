@@ -96,7 +96,7 @@ kbd {
   border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: var(--ink);
 }
 .card .label { margin: 16px 0 0; font-size: 12px; }
-.modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0 0; }
+.modes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 8px 0 0; }
 .modes button {
   font: inherit; text-align: left; padding: 10px; border-radius: 10px; cursor: pointer;
   background: rgba(255, 255, 255, 0.04); color: var(--ink); border: 1px solid var(--line);
@@ -162,9 +162,8 @@ kbd {
       </div>
       <p class="label">난이도</p>
       <div class="modes">
-        <button type="button" data-mode="relaxed" aria-pressed="false"><b>느긋하게</b><span>문이 계속 열림 · 이상현상 적음</span></button>
-        <button type="button" data-mode="normal" aria-pressed="true"><b>보통</b><span>문이 계속 열림 · 이상현상 보통</span></button>
-        <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 이상현상 많음</span></button>
+        <button type="button" data-mode="normal" aria-pressed="true"><b>보통</b><span>문이 계속 열림 · 시간 제한 없음</span></button>
+        <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 남은 시간 표시</span></button>
       </div>
       <button class="btn" id="start-btn" type="button" disabled>불러오는 중…</button>
     </div>
@@ -179,9 +178,8 @@ kbd {
       <div id="pause-modes" hidden>
         <p class="label">난이도를 바꾸면 지하 8층부터 새로 시작한다</p>
         <div class="modes pause-modes">
-          <button type="button" data-mode="relaxed" aria-pressed="false"><b>느긋하게</b><span>문이 계속 열림 · 이상현상 적음</span></button>
-          <button type="button" data-mode="normal" aria-pressed="false"><b>보통</b><span>문이 계속 열림 · 이상현상 보통</span></button>
-          <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 이상현상 많음</span></button>
+          <button type="button" data-mode="normal" aria-pressed="false"><b>보통</b><span>문이 계속 열림 · 시간 제한 없음</span></button>
+          <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 남은 시간 표시</span></button>
         </div>
         <button class="btn" id="restart-btn" type="button">이 난이도로 지하 8층부터</button>
       </div>
@@ -203,7 +201,6 @@ kbd {
       <details class="record">
         <summary>누적 기록 (난이도별, 이 브라우저에만 저장)</summary>
         <select id="record-mode" aria-label="기록을 볼 난이도">
-          <option value="relaxed">느긋하게</option>
           <option value="normal">보통</option>
           <option value="hard">어려움</option>
         </select>
@@ -216,9 +213,8 @@ kbd {
       </details>
       <p class="label">다시 할 난이도</p>
       <div class="modes">
-        <button type="button" data-mode="relaxed" aria-pressed="false"><b>느긋하게</b><span>문이 계속 열림 · 이상현상 적음</span></button>
-        <button type="button" data-mode="normal" aria-pressed="true"><b>보통</b><span>문이 계속 열림 · 이상현상 보통</span></button>
-        <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 이상현상 많음</span></button>
+        <button type="button" data-mode="normal" aria-pressed="true"><b>보통</b><span>문이 계속 열림 · 시간 제한 없음</span></button>
+        <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 남은 시간 표시</span></button>
       </div>
       <button class="btn" id="again-btn" type="button">지하 8층부터 다시</button>
     </div>
@@ -239,10 +235,10 @@ kbd {
   const EYE = 1.6;
   const FLOORS = ['B8', 'B7', 'B6', 'B5', 'B4', 'B3', 'B2', 'B1', '1F'];
   const GOAL = FLOORS.length - 1;
-  // 난이도별 기본 이상현상 확률. 지하 3층부터는 한 층 오를 때마다 +0.03 (B3 +0.03, B2 +0.06, B1 +0.09), 최대 0.85
-  const ANOMALY_CHANCE = { relaxed: 0.4, normal: 0.55, hard: 0.65 };
-  const RAMP_FROM = 5, RAMP_STEP = 0.03, MAX_CHANCE = 0.85; // FLOORS[5] = B3
-  const anomalyChance = (floorIndex) => Math.min(MAX_CHANCE, ANOMALY_CHANCE[game.mode] + Math.max(0, floorIndex - RAMP_FROM + 1) * RAMP_STEP);
+  // 이상현상 확률은 난이도·층과 관계없이 0.6으로 고정 (난이도 차이는 어려움의 시간 제한뿐)
+  // 예외: 같은 판에서 B3와 B2가 둘 다 정상이었으면 B1은 반드시 이상현상 (B3~B1 세 층 연속 정상 방지)
+  const ANOMALY_CHANCE = 0.6;
+  const B3 = 5, B2 = 6, B1 = 7; // FLOORS 인덱스
   const RIDE_TIME = 6, LONG_RIDE_TIME = 25;
   const MID_AT = 2, MID_STOP = 3.4;     // 층 사이에서 멈추는 이상현상: 멈추는 시각과 길이
   const DOOR_TIME = 1.2;
@@ -1412,30 +1408,39 @@ kbd {
   ];
 
   // 진행 층에 따라 난이도를 고르고(쉬움 0.45−0.05k, 어려움 0.10+0.05k), 섞어 둔 목록에서 그 난이도를 하나 뽑음.
-  // 목록을 한 바퀴 돌기 전에는 같은 이상현상이 다시 나오지 않음. 운행이 없는 루프에서는 운행 중 이상현상을 건너뜀
+  // 섞어 둔 목록(bag)에서 하나씩 꺼냄. 최근 6개는 다시 꺼내지 않음. 운행이 없는 루프에서는 운행 중 이상현상을 건너뜀
   let bag = [];
-  let lastId = null;
+  let recent = []; // 최근에 나온 이상현상 id. 이 안에 있는 것은 다시 꺼내지 않음
+  const RECENT = 6;  // 한 판(7층) 안에서는 같은 이상현상이 거의 다시 나오지 않도록
   function drawAnomaly(allowRide) {
+    // 도착 층 k에 따른 등급 비율 (쉬움 / 보통 / 어려움). 보통은 항상 0.45
+    // B8~B6: 0.45/0.45/0.10 → 0.35/0.45/0.20 (층마다 쉬움 0.05가 어려움으로)
+    // B5~B4: 0.10/0.45/0.45,  B3~B1: 0.00/0.45/0.55
     const k = clamp(game.count, 0, GOAL - 1);
-    const r = Math.random(), pEasy = 0.45 - 0.05 * k, pHard = 0.1 + 0.05 * k;
+    const pEasy = k >= B3 ? 0 : k >= 3 ? 0.1 : 0.45 - 0.05 * k;
+    const pHard = k >= B3 ? 0.55 : k >= 3 ? 0.45 : 0.1 + 0.05 * k;
+    const r = Math.random();
     const tier = r < pEasy ? 'easy' : r < 1 - pHard ? 'normal' : 'hard';
-    for (let tries = 0; tries < 2; tries++) {
-      if (!bag.length) {
-        bag = ANOMALIES.slice();
-        for (let i = bag.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [bag[i], bag[j]] = [bag[j], bag[i]]; }
-      }
-      const ok = (a) => (allowRide || a.kind !== 'ride') && a.id !== lastId;
-      let i = -1;
-      for (let j = bag.length - 1; j >= 0 && i < 0; j--) if (ok(bag[j]) && bag[j].tier === tier) i = j;
-      for (let j = bag.length - 1; j >= 0 && i < 0; j--) if (ok(bag[j])) i = j;
-      if (i >= 0) {
-        const a = bag.splice(i, 1)[0];
-        lastId = a.id;
-        return a;
-      }
-      bag = [];
+    const ok = (a) => (allowRide || a.kind !== 'ride') && !recent.includes(a.id);
+    const find = (t) => { for (let j = bag.length - 1; j >= 0; j--) if (ok(bag[j]) && bag[j].tier === t) return j; return -1; };
+    let i = find(tier);
+    if (i < 0) {
+      // 고른 등급이 주머니에 없으면, 주머니에 없는 이상현상을 모두 섞어서 다시 넣음.
+      // 남아 있던 것은 그대로 두므로 같은 이상현상이 주머니에 두 번 들어가지는 않음.
+      // (예전처럼 "남은 아무거나"를 꺼내면, 잘 안 뽑혀 쌓인 쉬운 이상현상이 위층에서 나와 버림)
+      const add = ANOMALIES.filter((a) => !bag.includes(a));
+      for (let n = add.length - 1; n > 0; n--) { const m = (Math.random() * (n + 1)) | 0; [add[n], add[m]] = [add[m], add[n]]; }
+      bag = add.concat(bag); // 남아 있던 것을 먼저 꺼내도록 새로 넣은 것은 앞쪽에
+      i = find(tier);
     }
-    return null;
+    // 그래도 없으면(운행 중 이상현상을 뺀 경우 등) 가까운 등급부터
+    const NEAR = { hard: ['normal', 'easy'], normal: ['hard', 'easy'], easy: ['normal', 'hard'] };
+    for (const t of NEAR[tier]) if (i < 0) i = find(t);
+    if (i < 0) return null;
+    const a = bag.splice(i, 1)[0];
+    recent.push(a.id);
+    if (recent.length > RECENT) recent.shift();
+    return a;
   }
 
   function resetWorld(floor) {
@@ -1495,7 +1500,7 @@ kbd {
   const game = {
     state: 'title', phase: 'idle', t: 0, mode: 'normal', count: 0, anomaly: null, choice: null,
     openLeft: 0, extends: 0, warned: 0, loops: 0, misses: 0, timeouts: 0, found: new Set(), startTime: 0, nodT: -1,
-    fromFloor: 'B8', arrow: null, failMsg: null, gen: 0,
+    fromFloor: 'B8', arrow: null, failMsg: null, gen: 0, calm: [],
   };
   let toastTimer = 0;
   function toast(html, ms) {
@@ -1511,7 +1516,10 @@ kbd {
   // 다음 층으로 운행 시작. 이번 루프의 이상현상은 여기서 정해짐 (운행 중 이상현상도 이번 루프에 속함)
   function startRide(arrow) {
     const final = game.count >= GOAL;
-    game.anomaly = !final && game.loops > 0 && Math.random() < anomalyChance(game.count) ? drawAnomaly(true) : null;
+    const k = game.count;
+    const forced = k === B1 && game.calm[B3] && game.calm[B2];
+    game.anomaly = !final && game.loops > 0 && (forced || Math.random() < ANOMALY_CHANCE) ? drawAnomaly(true) : null;
+    game.calm[k] = !game.anomaly; // 이번 판(B8에서 다시 시작할 때까지) 층별 정상 여부
     resetWorld(FLOORS[game.count]);
     if (game.anomaly) game.anomaly.apply();
     game.arrow = arrow;
@@ -1622,7 +1630,8 @@ kbd {
       if (gen !== game.gen) return; // 그 사이에 새 판을 시작함
       player.x = 0; player.z = 0.4; player.yaw = 0; player.pitch = 0;
       // 추락 직후의 루프는 운행이 없으므로 운행 중 이상현상은 제외
-      game.anomaly = Math.random() < anomalyChance(0) ? drawAnomaly(false) : null;
+      game.anomaly = Math.random() < ANOMALY_CHANCE ? drawAnomaly(false) : null;
+      game.calm = [!game.anomaly];
       resetWorld(FLOORS[0]);
       setDoor(0);
       if (game.anomaly) {
@@ -1667,11 +1676,12 @@ kbd {
 
   // ---------- 누적 기록 (난이도 조정용. 이 브라우저의 localStorage에만 저장) ----------
   // 난이도마다 이상현상 확률이 달라서 따로 셈. (v1은 난이도를 섞어 셌으므로 새 키로 시작)
-  const RECORD_KEY = 'elevator-record-v2';
-  const MODES = ['relaxed', 'normal', 'hard'];
-  const MODE_NAME = { relaxed: '느긋하게', normal: '보통', hard: '어려움' };
+  // v3: 느긋하게를 없애고 확률을 0.6으로 통일해서 v2 기록과 비교할 수 없으므로 새 키로 시작
+  const RECORD_KEY = 'elevator-record-v3';
+  const MODES = ['normal', 'hard'];
+  const MODE_NAME = { normal: '보통', hard: '어려움' };
   const emptyStats = () => ({ clears: 0, loops: 0, normalLoops: 0, falseAlarms: 0, timeouts: 0, anomalies: {} });
-  const emptyRecord = () => ({ relaxed: emptyStats(), normal: emptyStats(), hard: emptyStats() });
+  const emptyRecord = () => ({ normal: emptyStats(), hard: emptyStats() });
   function loadRecord() {
     const rec = emptyRecord();
     try {
@@ -1734,8 +1744,8 @@ kbd {
   function startGame() {
     initAudio();
     game.gen++;
-    Object.assign(game, { count: 0, loops: 0, misses: 0, timeouts: 0, found: new Set(), anomaly: null, choice: null, fromFloor: FLOORS[0], arrow: null });
-    bag = []; lastId = null;
+    Object.assign(game, { count: 0, loops: 0, misses: 0, timeouts: 0, found: new Set(), anomaly: null, choice: null, fromFloor: FLOORS[0], arrow: null, calm: [true] });
+    bag = []; recent = [];
     player.x = 0; player.z = 0.4; player.yaw = 0; player.pitch = 0;
     resetWorld(FLOORS[0]);
     setDoor(0);
@@ -1752,7 +1762,8 @@ kbd {
     lockPointer();
     setPhase('ride');
     run.rideTime = 1.5; // 시작할 때는 짧게 기다렸다가 문이 열림
-    setTimeout(() => toast('지하 8층<small>이상한 점이 없으면 ▲</small>', 3000), 600);
+    // 처음 지하 8층은 항상 정상이라, 정상 모습을 익히도록 안내
+    setTimeout(() => toast('지하 8층<small>지금 모습을 잘 기억해 두자</small>', 3000), 600);
   }
 
   // ---------- 입력 ----------
