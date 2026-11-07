@@ -162,8 +162,8 @@ kbd {
       </div>
       <p class="label">난이도</p>
       <div class="modes">
-        <button type="button" data-mode="normal" aria-pressed="true"><b>보통</b><span>문이 계속 열림 · 시간 제한 없음</span></button>
-        <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 남은 시간 표시</span></button>
+        <button type="button" data-mode="normal" aria-pressed="true"><b>보통</b><span>시간 제한 없이 비교하고 확인</span></button>
+        <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 제한 시간 안에 판단</span></button>
       </div>
       <button class="btn" id="start-btn" type="button" disabled>불러오는 중…</button>
     </div>
@@ -178,8 +178,8 @@ kbd {
       <div id="pause-modes" hidden>
         <p class="label">난이도를 바꾸면 지하 8층부터 새로 시작한다</p>
         <div class="modes pause-modes">
-          <button type="button" data-mode="normal" aria-pressed="false"><b>보통</b><span>문이 계속 열림 · 시간 제한 없음</span></button>
-          <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 남은 시간 표시</span></button>
+          <button type="button" data-mode="normal" aria-pressed="false"><b>보통</b><span>시간 제한 없이 비교하고 확인</span></button>
+          <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 제한 시간 안에 판단</span></button>
         </div>
         <button class="btn" id="restart-btn" type="button">이 난이도로 지하 8층부터</button>
       </div>
@@ -213,8 +213,8 @@ kbd {
       </details>
       <p class="label">다시 할 난이도</p>
       <div class="modes">
-        <button type="button" data-mode="normal" aria-pressed="true"><b>보통</b><span>문이 계속 열림 · 시간 제한 없음</span></button>
-        <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 남은 시간 표시</span></button>
+        <button type="button" data-mode="normal" aria-pressed="true"><b>보통</b><span>시간 제한 없이 비교하고 확인</span></button>
+        <button type="button" data-mode="hard" aria-pressed="false"><b>어려움</b><span>문이 <span class="open-sec">12</span>초 뒤 닫힘 · 제한 시간 안에 판단</span></button>
       </div>
       <button class="btn" id="again-btn" type="button">지하 8층부터 다시</button>
     </div>
@@ -486,16 +486,16 @@ kbd {
   }
   countdownPanel((m) => scene.add(m), 0, 2.343, FRONT + 0.004, 0);
 
-  // 오른쪽 벽 버튼판
-  const PX = CW / 2 - 0.004;
-  plane(0.22, 0.74, new THREE.MeshStandardMaterial({ color: 0x5d6064, metalness: 0.5, roughness: 0.35 }), PX, 1.17, -0.6, -PI / 2);
+  // 문 오른쪽 EL-08 표지 아래: 정원 표시와 버튼판을 세로로 배치.
+  const PANEL_X = 0.74, PANEL_Z = FRONT + 0.006;
+  plane(0.22, 0.74, new THREE.MeshStandardMaterial({ color: 0x5d6064, metalness: 0.5, roughness: 0.35 }), PANEL_X, 1.17, PANEL_Z, 0);
   const capTex = (n) => canvasTex(256, 96, (g, w) => {
     g.fillStyle = '#e9e7e1'; g.fillRect(0, 0, w, 96);
     text(g, '정원 ' + n + '인', w / 2, 32, 30, '#222', DISPLAY);
     text(g, '적재하중 1000kg', w / 2, 70, 20, '#444');
   });
   const capNormalTex = capTex(13), capOneTex = capTex(1);
-  const capPlate = plane(0.2, 0.075, new THREE.MeshStandardMaterial({ map: capNormalTex, roughness: 0.6 }), PX - 0.002, 1.62, -0.6, -PI / 2);
+  const capPlate = plane(0.2, 0.075, new THREE.MeshStandardMaterial({ map: capNormalTex, roughness: 0.6 }), PANEL_X, 1.62, PANEL_Z + 0.002, 0);
 
   function buttonTex(draw, lit) {
     return canvasTex(128, 128, (g) => {
@@ -511,11 +511,11 @@ kbd {
     });
   }
   const BTN_DEFS = [
-    { id: 'up', y: 1.44, z: -0.6, draw: (g) => triangle(g, 64, 66, 26, true) },
-    { id: 'down', y: 1.3, z: -0.6, draw: (g) => triangle(g, 64, 62, 26, false) },
-    { id: 'open', y: 1.14, z: -0.66, draw: (g) => { text(g, '열림', 64, 66, 30, g.fillStyle, DISPLAY); } },
-    { id: 'close', y: 1.14, z: -0.54, draw: (g) => { text(g, '닫힘', 64, 66, 30, g.fillStyle, DISPLAY); } },
-    { id: 'bell', y: 0.98, z: -0.6, draw: (g) => {
+    { id: 'up', y: 1.44, x: 0, draw: (g) => triangle(g, 64, 66, 26, true) },
+    { id: 'down', y: 1.3, x: 0, draw: (g) => triangle(g, 64, 62, 26, false) },
+    { id: 'open', y: 1.14, x: -0.06, draw: (g) => { text(g, '열림', 64, 66, 30, g.fillStyle, DISPLAY); } },
+    { id: 'close', y: 1.14, x: 0.06, draw: (g) => { text(g, '닫힘', 64, 66, 30, g.fillStyle, DISPLAY); } },
+    { id: 'bell', y: 0.98, x: 0, draw: (g) => {
       g.beginPath(); g.arc(64, 70, 24, PI, 0); g.lineTo(88, 82); g.lineTo(40, 82); g.closePath(); g.fill();
       g.beginPath(); g.arc(64, 88, 6, 0, PI * 2); g.fill();
     } },
@@ -524,7 +524,7 @@ kbd {
   const buttonMeshes = [];
   for (const d of BTN_DEFS) {
     const off = buttonTex(d.draw, false), on = buttonTex(d.draw, true);
-    const m = plane(0.075, 0.075, new THREE.MeshBasicMaterial({ map: off, transparent: true }), PX - 0.006, d.y, d.z, -PI / 2);
+    const m = plane(0.075, 0.075, new THREE.MeshBasicMaterial({ map: off, transparent: true }), PANEL_X + d.x, d.y, PANEL_Z + 0.006, 0);
     m.userData = { id: d.id, off, on, lit: false };
     buttons[d.id] = m;
     buttonMeshes.push(m);
@@ -532,7 +532,7 @@ kbd {
   // 이상현상으로만 나타나는 버튼 (누를 수 없음)
   const extraBtn = plane(0.075, 0.075, new THREE.MeshBasicMaterial({
     map: buttonTex((g) => text(g, 'B13', 64, 66, 32, g.fillStyle, DISPLAY), false), transparent: true,
-  }), PX - 0.006, 0.86, -0.6, -PI / 2);
+  }), PANEL_X, 0.86, PANEL_Z + 0.006, 0);
   extraBtn.visible = false;
   // 닫힘 버튼 위 "고장" 스티커
   plane(0.06, 0.022, new THREE.MeshBasicMaterial({
@@ -540,7 +540,7 @@ kbd {
       g.fillStyle = '#f4e04d'; g.fillRect(0, 0, w, h);
       text(g, '고장', w / 2, h / 2 + 2, 30, '#111', DISPLAY);
     }),
-  }), PX - 0.008, 1.14, -0.54, -PI / 2).rotation.z = 0.25;
+  }), PANEL_X + 0.06, 1.14, PANEL_Z + 0.008, 0).rotation.z = 0.25;
   function setLit(id, lit) {
     const m = buttons[id];
     m.userData.lit = lit;
@@ -567,16 +567,24 @@ kbd {
       noise(g, w, h, 500, 0.06);
     }),
   }), LX, 1.5, -0.45, PI / 2);
-  const certTex = (pass) => canvasTex(200, 150, (g, w, h) => {
+  const certTex = (pass, id = 'EL-08') => canvasTex(200, 150, (g, w, h) => {
     g.fillStyle = '#ffffff'; g.fillRect(0, 0, w, h);
     g.strokeStyle = '#2c5aa0'; g.lineWidth = 6; g.strokeRect(6, 6, w - 12, h - 12);
-    text(g, '승강기 안전검사', w / 2, 36, 20, '#2c5aa0', DISPLAY);
+    text(g, '승강기 안전검사', w / 2, 30, 20, '#2c5aa0', DISPLAY);
     text(g, pass ? '합격' : '불합격', w / 2, 78, 36, '#c0281e', DISPLAY);
-    text(g, '유효기간 2027.04.30', w / 2, 118, 13, '#333');
+    text(g, '승강기 ' + id, w / 2, 111, 18, '#222');
+    text(g, '유효기간 2027.04.30', w / 2, 134, 13, '#333');
   });
-  const certOk = certTex(true), certFail = certTex(false);
+  const certOk = certTex(true), certFail = certTex(false), certWrongId = certTex(true, 'EL-03');
   const certMat = new THREE.MeshStandardMaterial({ map: certOk });
-  plane(0.2, 0.15, certMat, LX, 1.08, -0.45, PI / 2);
+  plane(0.4, 0.3, certMat, LX, 0.99, -0.45, PI / 2);
+  // Permanent reference number, present on every normal floor.
+  plane(0.25, 0.085, new THREE.MeshStandardMaterial({
+    map: canvasTex(256, 88, (g, w, h) => {
+      g.fillStyle = '#e9e7e1'; g.fillRect(0, 0, w, h);
+      text(g, '승강기 EL-08', w / 2, h / 2, 28, '#222');
+    }),
+  }), 0.74, 1.8, FRONT + 0.005, 0);
   const adTex = canvasTex(256, 360, (g, w, h) => {
     const gr = g.createLinearGradient(0, 0, 0, h);
     gr.addColorStop(0, '#174a63'); gr.addColorStop(1, '#0b1f2a');
@@ -599,17 +607,33 @@ kbd {
       g.beginPath(); g.ellipse(w / 2, 100, 17, 22, 0, 0, PI * 2); g.fill();
     }),
   });
-  const STEPS = [[-0.12, -0.75], [0.1, -0.45], [-0.14, -0.15], [0.06, 0.12], [-0.22, 0.36], [-0.42, 0.52]];
-  const prints = STEPS.map(([x, z], i) => {
-    const a = STEPS[Math.max(i - 1, 0)], b = STEPS[Math.min(i + 1, STEPS.length - 1)];
+  const prints = Array.from({ length: 64 }, () => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 0.26), footMat);
     m.rotation.order = 'YXZ';
-    m.rotation.set(-PI / 2, Math.atan2(a[0] - b[0], a[1] - b[1]), 0); // 발끝이 걸어간 방향을 향함
-    m.position.set(x, 0.008, z);
+    m.rotation.x = -PI / 2;
     m.visible = false;
     scene.add(m);
     return m;
   });
+  function leavePrint(x, z, yaw) {
+    const m = prints[run.printIndex++ % prints.length];
+    const side = run.printIndex % 2 ? 0.075 : -0.075;
+    m.position.set(x + Math.cos(yaw) * side, 0.008, z - Math.sin(yaw) * side);
+    m.rotation.y = yaw;
+    m.visible = true;
+  }
+  function updateFollowingTracks() {
+    const dx = player.x - run.trackLast.x, dz = player.z - run.trackLast.z;
+    const d = Math.hypot(dx, dz);
+    if (d < 0.28) return;
+    run.trackLast = { x: player.x, z: player.z };
+    run.trackTrail.push({ x: player.x, z: player.z, yaw: Math.atan2(-dx, -dz) });
+    // Leave the follower's tracks roughly one metre behind the real route.
+    if (run.trackTrail.length > 3) {
+      const point = run.trackTrail.shift();
+      leavePrint(point.x, point.z, point.yaw);
+    }
+  }
 
   // 문 (양쪽으로 열림). 문짝은 앞벽 바로 바깥에 있고 열리면 벽 뒤로 숨음
   const doorL = new THREE.Mesh(new THREE.BoxGeometry(DOOR_W / 2 + 0.02, DOOR_H, 0.03), doorMat);
@@ -1230,8 +1254,8 @@ kbd {
   }
   // 소리를 끈 상태에서는 소리 단서를 자막으로 보여 줌
   let captionTimer = 0;
-  function cue(str) {
-    if (audio.ctx && !audio.muted) return;
+  function cue(str, always = false) {
+    if (!always && audio.ctx && !audio.muted) return;
     const el = $('caption');
     el.textContent = str;
     el.classList.add('on');
@@ -1302,13 +1326,43 @@ kbd {
     } },
     { id: 'extrabtn', kind: 'cab', tier: 'normal', name: '없던 B13 버튼', apply() { extraBtn.visible = true; } },
     { id: 'cert', kind: 'cab', tier: 'hard', name: '불합격 검사필증', apply() { certMat.map = certFail; } },
+    { id: 'cert_id', kind: 'cab', tier: 'hard', name: '다른 승강기의 검사필증', apply() { certMat.map = certWrongId; } },
     { id: 'adflip', kind: 'cab', tier: 'normal', name: '좌우가 뒤집힌 광고', apply() { adTex.repeat.x = -1; adTex.offset.x = 1; } },
     { id: 'cctv', kind: 'cab', tier: 'hard', name: 'CCTV 속 눈동자', apply() { lens.visible = false; eyeball.visible = true; }, update() { eyeball.lookAt(camera.position); } },
-    { id: 'footprints', kind: 'cab', tier: 'normal', name: '저절로 생기는 젖은 발자국', apply() {}, update(dt) {
-      if (game.phase !== 'open' && game.phase !== 'closing') return;
-      run.foot += dt;
-      const n = Math.min(prints.length, Math.floor(run.foot / 0.8));
-      prints.forEach((p, i) => { p.visible = i < n; });
+    { id: 'footprints', kind: 'cab', tier: 'normal', name: '뒤따라 생기는 젖은 발자국', apply() {}, update() {
+      if (game.phase === 'open') updateFollowingTracks();
+    } },
+    { id: 'extra_steps', kind: 'cab', tier: 'hard', name: '멈춘 뒤 세 걸음 더', apply() {}, update(dt) {
+      if (game.phase !== 'open') return;
+      if (player.speed > 0.05) {
+        if (!run.wasWalking) run.walkDistance = 0;
+        run.wasWalking = true;
+        run.walkDistance += player.speed * dt;
+        run.extraSteps = 0;
+        return;
+      }
+      if (run.wasWalking) {
+        run.wasWalking = false;
+        if (run.walkDistance < 0.3) return;
+        run.extraSteps = 3; run.stepTimer = 0.3;
+        run.stepOrigin = { x: player.x, z: player.z, yaw: player.yaw };
+      }
+      if (!run.extraSteps) return;
+      run.stepTimer -= dt;
+      if (run.stepTimer > 0) return;
+      const origin = run.stepOrigin, back = run.extraSteps * 0.22 + 0.2;
+      let x = origin.x + Math.sin(origin.yaw) * back;
+      let z = origin.z + Math.cos(origin.yaw) * back;
+      const rects = [CAB_RECT, DOOR_RECT, LOBBY_RECT];
+      // Always show a visual clue, including when sound is enabled.
+      if (!inRects(rects, x, z)) {
+        const rect = origin.z >= FRONT ? CAB_RECT : LOBBY_RECT;
+        x = clamp(x + (run.extraSteps - 2) * 0.15, rect[0], rect[1]);
+        z = clamp(z, rect[2], rect[3]);
+      }
+      leavePrint(x, z, origin.yaw);
+      footstep(); cue('[멈춘 뒤 발소리 ' + (4 - run.extraSteps) + '/3]', true);
+      run.extraSteps--; run.stepTimer = 0.45;
     } },
     { id: 'buzzer', kind: 'cab', tier: 'normal', name: '혼자인데 울리는 만원 경보', apply() {}, update(dt, t) {
       if (game.phase !== 'opening' && game.phase !== 'open') return;
@@ -1326,8 +1380,7 @@ kbd {
       ghost.group.visible = true;
     } },
     { id: 'mirror_door', kind: 'mirror', tier: 'normal', name: '거울 속에서는 닫혀 있는 문', apply() { mirrorDoors.forEach((d) => { d.visible = true; }); } },
-    { id: 'mirror_lag', kind: 'mirror', tier: 'hard', name: '한 박자 늦게 따라 하는 거울 속 나', apply() { run.mirrorLag = true; } },
-    { id: 'display', kind: 'ride', tier: 'normal', name: '층 표시판이 엉뚱한 층을 지남', apply() { run.displayGlitch = true; } },
+    { id: 'mirror_lag', kind: 'mirror', tier: 'hard', name: '멈춰도 계속 움직이는 거울 속 나', apply() { run.mirrorMoving = true; } },
     { id: 'longride', kind: 'ride', tier: 'hard', name: '너무 긴 운행', apply() { run.rideTime = LONG_RIDE_TIME; } },
     { id: 'knock', kind: 'ride', tier: 'hard', name: '천장 위에서 두드리는 소리', apply() { run.knocks = [1.6, 2.0, 2.4, 3.9, 4.3]; }, update(dt) {
       if (run.flick > 0) {
@@ -1370,11 +1423,25 @@ kbd {
     } },
     { id: 'janitor_wall', kind: 'lobby', tier: 'easy', name: '벽을 보고 선 관리인', apply() { janitor.group.rotation.y = PI; run.nod = false; } },
     { id: 'janitor_absent', kind: 'lobby', tier: 'normal', name: '자리에 없는 관리인', apply() { janitor.group.visible = false; } },
-    { id: 'janitor_stare', kind: 'lobby', tier: 'hard', name: '고개를 숙이지 않고 따라보는 관리인', apply() { run.nod = false; }, update() {
+    { id: 'janitor_stare', kind: 'lobby', tier: 'hard', name: '인사 후에도 따라보는 관리인', apply() {}, update() {
+      if (game.phase !== 'open' || game.t < 2) return;
       const p = janitor.group.position;
       const dx = camera.position.x - p.x, dz = camera.position.z - p.z;
       janitor.head.rotation.y = clamp(normAngle(Math.atan2(dx, dz) - janitor.group.rotation.y), -1.3, 1.3);
       janitor.head.rotation.x = clamp(Math.atan2(1.7 - camera.position.y, Math.hypot(dx, dz)), -0.5, 0.5);
+    } },
+    { id: 'janitor_creep', kind: 'lobby', tier: 'hard', name: '눈을 돌리면 움직이는 관리인', apply() {}, update(dt) {
+      if (game.phase !== 'open' || game.t < 2 || janitorObserved()) return;
+      const p = janitor.group.position;
+      run.creepTime += dt;
+      if (run.creepTime < 0.7) return;
+      const route = [[JAN_X, JAN_Z], [JAN_X + 0.22, JAN_Z], [JAN_X + 0.22, JAN_Z + 0.28], [JAN_X, JAN_Z + 0.28]];
+      const target = route[run.creepTarget];
+      const dx = target[0] - p.x, dz = target[1] - p.z, d = Math.hypot(dx, dz);
+      const step = Math.min(d, dt * 0.12);
+      if (Math.hypot(p.x + dx / Math.max(d, 0.001) * step - player.x, p.z + dz / Math.max(d, 0.001) * step - player.z) < 0.65) return;
+      if (d < 0.005) { run.creepTarget = (run.creepTarget + 1) % route.length; run.creepTime = 0; }
+      else { p.x += dx / d * step; p.z += dz / d * step; }
     } },
     { id: 'janitor_inside', kind: 'lobby', tier: 'easy', name: '엘리베이터 안에 들어와 있는 관리인', apply() { run.nod = false; }, arrive() {
       // 도착하는 순간 불이 잠깐 꺼지고, 플레이어에게서 가장 먼 구석에 관리인이 서 있음
@@ -1401,7 +1468,7 @@ kbd {
         const want = clamp(normAngle(Math.atan2(camera.position.x - p.x, camera.position.z - p.z) - janitor.group.rotation.y), -1.4, 1.4);
         janitor.head.rotation.y += (want - janitor.head.rotation.y) * Math.min(1, dt * 3);
       }
-      if (run.insideT > 6.2) caught();
+      if (game.mode === 'hard' && run.insideT > 6.2) caught();
     } },
     { id: 'firedoor', kind: 'lobby', tier: 'normal', name: '조금 열린 방화문', apply() { fireDoor.rotation.y = -0.6; } },
     { id: 'bucket', kind: 'lobby', tier: 'hard', name: '붉은 물이 담긴 양동이', apply() { waterMat.color.setHex(0x6a0c0c); } },
@@ -1461,8 +1528,10 @@ kbd {
     ghost.group.visible = false;
     mirrorDoors.forEach((d) => { d.visible = false; });
     Object.assign(run, {
-      rideTime: RIDE_TIME, displayGlitch: false, nod: true, mirrorLag: false, ghostSeen: false,
-      foot: 0, buzz: 0, buzzCue: false, knocks: [], knockCue: false, flick: 0, jolt: 0,
+      rideTime: RIDE_TIME, nod: true, mirrorMoving: false, mirrorWalk: player.walk, ghostSeen: false,
+      printIndex: 0, trackLast: { x: player.x, z: player.z }, trackTrail: [],
+      extraSteps: 0, wasWalking: false, walkDistance: 0, stepTimer: 0, stepOrigin: null,
+      creepTime: 0, creepTarget: 1, buzz: 0, buzzCue: false, knocks: [], knockCue: false, flick: 0, jolt: 0,
       stopped: false, midDoor: false, midClose: false, insideT: 0, motorOff: false,
     });
     lobby.visible = true;
@@ -1676,8 +1745,8 @@ kbd {
 
   // ---------- 누적 기록 (난이도 조정용. 이 브라우저의 localStorage에만 저장) ----------
   // 난이도마다 이상현상 확률이 달라서 따로 셈. (v1은 난이도를 섞어 셌으므로 새 키로 시작)
-  // v3: 느긋하게를 없애고 확률을 0.6으로 통일해서 v2 기록과 비교할 수 없으므로 새 키로 시작
-  const RECORD_KEY = 'elevator-record-v3';
+  // v4: 느긋하게를 없애고 확률을 0.6으로 통일해서 v3(느긋하게/보통/익스트림, 0.55·0.65) 기록과 비교할 수 없으므로 새 키로 시작
+  const RECORD_KEY = 'elevator-record-v4';
   const MODES = ['normal', 'hard'];
   const MODE_NAME = { normal: '보통', hard: '어려움' };
   const emptyStats = () => ({ clears: 0, loops: 0, normalLoops: 0, falseAlarms: 0, timeouts: 0, anomalies: {} });
@@ -1937,21 +2006,50 @@ kbd {
     if (player.stepDist > 0.65) { player.stepDist = 0; footstep(); }
   }
 
-  // 거울 속 내 몸: 보통은 지금 자세, "한 박자 늦게" 이상현상에서는 0.6초 전 자세를 따라 함
-  const selfHist = [];
-  function updateSelf() {
-    const now = performance.now() / 1000;
-    selfHist.push({ t: now, x: player.x, z: player.z, yaw: player.yaw, pitch: player.pitch, walk: player.walk, speed: player.speed });
-    while (selfHist.length > 2 && selfHist[0].t < now - 1.5) selfHist.shift();
-    let p = selfHist[selfHist.length - 1];
-    if (run.mirrorLag) p = selfHist.find((h) => h.t >= now - 0.6) || p;
+  // Normal reflection follows immediately. The anomaly keeps walking in place after the player stops.
+  function updateSelf(dt) {
+    const p = player;
     const fx = -Math.sin(p.yaw), fz = -Math.cos(p.yaw);
     me.group.position.set(p.x - fx * 0.1, 0, p.z - fz * 0.1);
     me.group.rotation.y = p.yaw + PI;
     me.head.rotation.x = clamp(-p.pitch, -0.6, 0.7);
-    const swing = Math.sin(p.walk) * 0.5 * Math.min(1, p.speed / WALK);
+    const independent = run.mirrorMoving && game.state === 'play' && ACTIVE_PHASES.includes(game.phase);
+    if (independent) run.mirrorWalk += dt * 5;
+    const swing = Math.sin(independent ? run.mirrorWalk : p.walk) * 0.5 * (independent ? 1 : Math.min(1, p.speed / WALK));
     me.legL.rotation.x = swing; me.legR.rotation.x = -swing;
     me.armL.rotation.x = -swing * 0.6; me.armR.rotation.x = swing * 0.6;
+  }
+
+  const observationRay = new THREE.Raycaster();
+  function visiblePoint(point) {
+    const projected = point.clone().project(camera);
+    if (Math.abs(projected.x) > 1.15 || Math.abs(projected.y) > 1.15 || projected.z < -1 || projected.z > 1) return false;
+    const direction = point.clone().sub(camera.position), distance = direction.length();
+    observationRay.set(camera.position, direction.normalize());
+    return !observationRay.intersectObjects(scene.children, true).some((hit) => {
+      if (hit.distance >= distance - 0.3) return false;
+      let obj = hit.object;
+      while (obj) {
+        if (!obj.visible) return false;
+        if (obj === janitor.group) return false;
+        obj = obj.parent;
+      }
+      return true;
+    });
+  }
+  function janitorObserved() {
+    // Camera is set this frame before anomaly updates, so turning away never adds a visible step.
+    const point = janitor.group.position.clone().add(new THREE.Vector3(0, 1.3, 0));
+    if (visiblePoint(point)) return true;
+    // Count a visible reflection as observation too. Require the ray to pass through the actual mirror.
+    const reflected = point.clone(); reflected.z = 2 * mirror.position.z - point.z;
+    const direction = reflected.clone().sub(camera.position);
+    const fraction = (mirror.position.z - camera.position.z) / direction.z;
+    if (fraction <= 0 || fraction >= 1) return false;
+    const cross = camera.position.clone().addScaledVector(direction, fraction);
+    if (Math.abs(cross.x) > 0.92 || cross.y < 0.98 || cross.y > 2.28) return false;
+    // Only reflections seen from inside the cabin have an unobstructed route to this lobby NPC.
+    return player.z >= FRONT && visiblePoint(cross);
   }
 
   // 거울 속 사람은 거울을 처음 바라보는 순간 짧은 효과음
@@ -1992,7 +2090,6 @@ kbd {
     if (game.state === 'play') {
       game.t += dt;
       move(dt);
-      updatePhase(dt);
     }
     // 흔들림은 무작위 떨림 대신 느린 사인파를 섞어 부드럽게 (동작 줄이기 설정이면 더 약하게)
     shakeT += dt;
@@ -2004,7 +2101,9 @@ kbd {
       player.z,
     );
     camera.rotation.set(player.pitch, player.yaw, a * 0.4 * Math.sin(shakeT * 9.1));
-    updateSelf();
+    camera.updateMatrixWorld();
+    if (game.state === 'play') updatePhase(dt);
+    updateSelf(dt);
 
     if (game.state === 'play' && !touchMode) {
       hovered = player.z > FRONT + 0.05 ? pick(0, 0) : null;
@@ -2031,14 +2130,7 @@ kbd {
           shakeAmp = run.stopped ? 0 : 0.0012;
         }
         if (run.jolt > 0) { run.jolt -= dt; shakeAmp += 0.004; }
-        if (run.displayGlitch) {
-          const seq = ['B9', 'B10', 'B12', 'B13'];
-          const k = t / T;
-          if (k > 0.25 && k < 0.85) disp.set(seq[Math.min(seq.length - 1, Math.floor((k - 0.25) / 0.15))], game.arrow === 'up' ? 'down' : 'up');
-          else if (k >= 0.85) disp.set(FLOORS[game.count], game.arrow);
-        } else if (game.arrow && t > T * 0.55) {
-          disp.set(FLOORS[game.count], game.arrow);
-        }
+        if (game.arrow && t > T * 0.55) disp.set(FLOORS[game.count], game.arrow);
         if (t >= T) arrive();
         break;
       }
@@ -2060,7 +2152,7 @@ kbd {
           break;
         }
         // 관리인이 고개 숙임
-        if (game.nodT >= 0) {
+        if (game.nodT >= 0 && t < game.nodT + 1.4) {
           const k = (t - game.nodT) / 1.4;
           janitor.head.rotation.x = k > 0 && k < 1 ? Math.sin(k * PI) * 0.45 : 0;
         }
